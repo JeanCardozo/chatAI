@@ -1,0 +1,85 @@
+# Demo local de chatAI (JeanCRG): n8n + Postgres + Cloudflare Tunnel.
+# Levantar con: cp .env.example .env  (completar valores)  y luego: docker compose up -d
+# n8n queda en http://localhost:5678
+
+services:
+  # ------------------------------------------------------------------
+  # n8n: orquestador del asistente (Community Edition, gratis).
+  # Recibe el webhook de WhatsApp Cloud API, llama a Gemini y escribe en Supabase.
+  # ------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: chatai-n8n
+    ports:
+      - "5678:5678"
+    # En Railway/Render se usa el Dockerfile; este compose es para dev local
+    environment:
+      # Base de datos: Postgres del propio compose (n8n no usa SQLite en producción)
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-n8n}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-n8n}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      # Clave de cifrado: si se pierde, se pierden las credenciales guardadas en n8n
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - GENERIC_TIMEZONE=America/Bogota
+      # Permite leer variables de entorno desde los nodos de código ($env.GEMINI_API_KEY)
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # Variables de negocio usadas por el workflow
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SYSTEM_PROMPT=${SYSTEM_PROMPT:-}
+      - TENANT_ID=${TENANT_ID}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # postgres: base de datos interna de n8n (credenciales, ejecuciones).
+  # Los datos de negocio (contactos, conversaciones, leads) viven en Supabase.
+  # ------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatai-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-n8n}
+      - POSTGRES_USER=${POSTGRES_USER:-n8n}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n8n} -d ${POSTGRES_DB:-n8n}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # cloudflared: túnel rápido de DEMO. Expone n8n en una URL publica
+  # estable (https://xxx.trycloudflare.com) para recibir el webhook de Meta.
+  # SOLO para dev local: en la nube (Railway/Render) el webhook usa la URL
+  # publica del servicio con TLS, no este tunel.
+  # Para PRODUCCION con dominio propio: sustituir el comando por
+  #   tunnel: cloudflared tunnel --no-autoupdate run <TUNNEL_NAME>
+  # y definir en cloudflared/config.yml:
+  #   tunnel: <TUNNEL_ID>
+  #   credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+  #   ingress:
+  #     - hostname: webhook.tudominio.com
+  #       service: http://n8n:5678
+  #     - service: http_status:404
+  # La URL del quick tunnel se muestra en los logs: docker compose logs -f cloudflared
+  # ------------------------------------------------------------------
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: chatai-cloudflared
+    command: tunnel --no-autoupdate --url http://n8n:5678
+    depends_on:
+      - n8n
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+  postgres_data:
