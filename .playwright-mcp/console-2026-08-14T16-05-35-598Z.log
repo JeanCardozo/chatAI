@@ -15,3 +15,7 @@ Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. {col
 [    2096ms] [WARNING] Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently @ https://static.xx.fbcdn.net/rsrc.php/v4iseY4/y2/l/es_ES~es_LA-j/W8mwv9OFuhi8f95oYa0kNwJiumObJVK5rUUySo3b3y9n2AxvL0EvM5PQpTYZ4KBfTIkYE3QEEpPuT41Vk-2zIB3TMDiCeAiwWgL.js:52
 [    2137ms] [WARNING] [.WebGL-0x35ec00113e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ https://www.facebook.com/61561324287482/posts/27601214359574439/?rdid=XeQmCw6j3vKTV5Vt#:0
 [    2140ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://www.facebook.com/61561324287482/posts/27601214359574439/?rdid=XeQmCw6j3vKTV5Vt#:0
+[ 9709551ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.facebook.com/nw/:0
+[ 9709660ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.facebook.com/nw/:0
+[10902292ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.facebook.com/nw/:0
+[10903101ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.facebook.com/nw/:0
