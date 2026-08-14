@@ -234,7 +234,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let historyRows = [];\ntry { historyRows = $('Obtener Historial').all().map(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r)); } catch (e) {}\nconst contents = historyRows.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] }));\ncontents.push({ role: 'user', parts: [{ text: $('Normalizar Mensaje').item.json.message_text }] });\nconst systemInstruction = $env.SYSTEM_PROMPT || 'Eres el asistente virtual del negocio. Responde corto y claro.';\nreturn [{ json: { model: 'gemini-flash-latest', contents, system_instruction: { parts: [{ text: systemInstruction }] } } }];"
+        "jsCode": "let historyRows = [];\ntry { historyRows = $('Obtener Historial').all().map(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r)); } catch (e) {}\nconst contents = historyRows.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] }));\ncontents.push({ role: 'user', parts: [{ text: $('Normalizar Mensaje').item.json.message_text }] });\nconst systemInstruction = $env.SYSTEM_PROMPT || 'Eres el asistente virtual de JeanCRG, consultoria de software e inteligencia artificial en Colombia. Servicios: 1) Asistente IA para WhatsApp desde $1.800.000 COP + retainer mensual de $250.000 (montaje en 5 dias); 2) Diagnostico tecnologico $300.000 (descontable); 3) Automatizaciones n8n desde $1.500.000; 4) Chatbot con datos propios (RAG) desde $2.500.000; 5) Tienda online desde $2.500.000; 6) Desarrollo a medida desde $3.000.000. Piloto de 15 dias por $800.000 (descontable del precio final). Responde en espanol neutro, maximo 2-3 frases, termina cada respuesta con una pregunta, deriva a humano si el cliente lo pide o esta frustrado, no inventes precios fuera de esta lista.';\nreturn [{ json: { model: 'gemini-flash-latest', contents, system_instruction: { parts: [{ text: systemInstruction }] } } }];"
       },
       "id": "n12",
       "name": "Preparar Contexto Gemini",
@@ -272,7 +272,10 @@
       "position": [
         1440,
         208
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
@@ -320,24 +323,6 @@
         1920,
         208
       ]
-    },
-    {
-      "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "7309831214",
-        "text": "={{ $('Extraer Respuesta').item.json.needs_human ? 'DERIVAR: contacto ' + $('Normalizar Mensaje').item.json.contact_phone + ' | ' + $('Extraer Respuesta').item.json.clean : '' }}",
-        "additionalFields": {}
-      },
-      "id": "n16",
-      "name": "Notificar Humano",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        2160,
-        80
-      ],
-      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -401,6 +386,40 @@
         2400,
         120
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Solo notifica cuando Gemini marco [DERIVAR].\nconst extra = $('Extraer Respuesta').item.json;\nconst notificar = Boolean(extra.needs_human);\nconst texto = notificar ? 'DERIVAR: contacto ' + $('Normalizar Mensaje').item.json.contact_phone + ' | ' + extra.clean : '';\nreturn [{ json: { notificar, texto } }];"
+      },
+      "id": "n20",
+      "name": "Preparar Notificacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.telegram.org/bot8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E/sendMessage' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={{ $json.notificar ? { chat_id: 7309831214, text: $json.texto } : {} }}",
+        "options": {}
+      },
+      "id": "n21",
+      "name": "Enviar Notificacion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        80
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "DEMO: token del bot embebido. PRODUCCION: mover a $env.TELEGRAM_BOT_TOKEN en Railway."
     }
   ],
   "connections": {
@@ -562,17 +581,6 @@
         ]
       ]
     },
-    "Notificar Humano": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Preparar Lead": {
       "main": [
         [
@@ -588,7 +596,29 @@
       "main": [
         [
           {
-            "node": "Notificar Humano",
+            "node": "Preparar Notificacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Notificacion": {
+      "main": [
+        [
+          {
+            "node": "Enviar Notificacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Notificacion": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
             "type": "main",
             "index": 0
           }
