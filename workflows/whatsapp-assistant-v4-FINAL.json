@@ -358,7 +358,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Solo emite item si Gemini marco un lead ([LEAD nombre|telefono|interes]).\nconst lead = $('Extraer Respuesta').item.json.lead_marker || '';\nif (!lead) { throw new Error('SIN_LEAD'); }\nconst parts = String(lead).split('|');\nreturn [{ json: { nombre: (parts[0] || '').trim(), telefono: $('Normalizar Mensaje').item.json.contact_phone, interes: (parts[2] || parts[0] || '').trim() } }];"
+        "jsCode": "// Emite es_lead + datos; sin throw (el insert se hace no-op con body [] cuando no hay lead).\nconst lead = $('Extraer Respuesta').item.json.lead_marker || '';\nconst parts = lead ? String(lead).split('|') : [];\nreturn [{ json: {\n  es_lead: Boolean(lead),\n  nombre: (parts[0] || '').trim(),\n  telefono: $('Normalizar Mensaje').item.json.contact_phone,\n  interes: (parts[2] || parts[0] || '').trim()\n} }];"
       },
       "id": "n18",
       "name": "Preparar Lead",
@@ -371,50 +371,36 @@
     },
     {
       "parameters": {
-        "tableId": "leads",
-        "dataToSend": "defineBelow",
-        "fieldsUi": {
-          "fieldValues": [
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads' }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
             {
-              "fieldId": "tenant_id",
-              "fieldValue": "={{ $('Contacto Listo').item.json.tenant_id }}"
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
             },
             {
-              "fieldId": "contacto_id",
-              "fieldValue": "={{ $('Contacto Listo').item.json.contacto_id }}"
-            },
-            {
-              "fieldId": "nombre",
-              "fieldValue": "={{ $json.nombre }}"
-            },
-            {
-              "fieldId": "telefono",
-              "fieldValue": "={{ $json.telefono }}"
-            },
-            {
-              "fieldId": "interes",
-              "fieldValue": "={{ $json.interes }}"
-            },
-            {
-              "fieldId": "estado",
-              "fieldValue": "nuevo"
-            },
-            {
-              "fieldId": "source",
-              "fieldValue": "whatsapp"
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_KEY }}"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={{ $json.es_lead ? [{ tenant_id: $('Contacto Listo').item.json.tenant_id, contacto_id: $('Contacto Listo').item.json.contacto_id, nombre: $json.nombre, telefono: $json.telefono, interes: $json.interes, estado: 'nuevo', source: 'whatsapp' }] : [] }}",
+        "options": {}
       },
-      "id": "n19",
+      "id": "n19b",
       "name": "Guardar Lead",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         2400,
         120
-      ],
-      "onError": "continueRegularOutput"
+      ]
     }
   ],
   "connections": {
