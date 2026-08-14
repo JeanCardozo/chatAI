@@ -1,0 +1,160 @@
+{
+  "name": "WhatsApp Assistant Base - P1",
+  "nodes": [
+    {
+      "parameters": {"httpMethod": ["GET", "POST"], "path": "whatsapp", "responseMode": "responseNode", "options": {}},
+      "id": "n1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-480, 128],
+      "multipleMethods": true,
+      "webhookId": "chatai-whatsapp-webhook"
+    },
+    {
+      "parameters": {"conditions": [{"id": "1", "leftValue": "={{ $json.body && $json.body.entry ? 'false' : 'true' }}", "rightValue": "true", "operator": "string"}], "options": {}},
+      "id": "n2",
+      "name": "IF Verificación",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-240, 128]
+    },
+    {
+      "parameters": {"respondWith": "text", "responseBody": "={{ $json.query['hub.challenge'] }}", "options": {}},
+      "id": "n3",
+      "name": "Responder Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {"jsCode": "const mode = String($env.WEBHOOK_VERIFY_SIGNATURE || 'false').toLowerCase();\nconst passthrough = (verified, m) => [{ json: Object.assign({ verified, mode: m }, $input.first().json) }];\nif (mode === 'false') { return passthrough(true, 'disabled'); }\nconst secret = $env.META_APP_SECRET || '';\nconst headers = $input.first().json.headers || {};\nconst signature = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'] || '';\nconst rawBody = JSON.stringify($input.first().json.body);\nif (!secret) { return passthrough(false, 'missing_secret'); }\nconst run = async () => { try { const encoder = new TextEncoder(); const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']); const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody)); const hex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join(''); return passthrough(signature === 'sha256=' + hex, 'enabled'); } catch (e) { return passthrough(false, 'crypto_unavailable'); } };\nreturn run();"},
+      "id": "n4",
+      "name": "Verificar Firma Meta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 368]
+    },
+    {
+      "parameters": {"conditions": [{"id": "1", "leftValue": "={{ $json.verified ? 'true' : 'false' }}", "rightValue": "true", "operator": "string"}], "options": {}},
+      "id": "n5",
+      "name": "IF Firma OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [0, 368]
+    },
+    {
+      "parameters": {"respondWith": "text", "responseBody": "unauthorized", "options": {}},
+      "id": "n6",
+      "name": "Responder Rechazo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [240, 368]
+    },
+    {
+      "parameters": {"jsCode": "const payload = $input.first().json;\nconst businessPhone = ($env.WHATSAPP_BUSINESS_PHONE || '').replace(/\\D/g, '');\nfor (const entry of payload.body.entry || payload.entry || []) {\n  for (const change of entry.changes || []) {\n    const value = change.value || {};\n    if (value.messages && value.messages.length > 0) {\n      const msg = value.messages[0];\n      const from = String(msg.from || '').replace(/\\D/g, '');\n      if (businessPhone && from === businessPhone) { throw new Error('IGNORADO: mensaje del propio negocio'); }\n      const hasText = msg.text && msg.text.body;\n      if (msg.type && msg.type !== 'text' && !hasText) { throw new Error('IGNORADO: tipo no soportado (' + msg.type + ')'); }\n      if (!hasText) { throw new Error('IGNORADO: sin texto'); }\n      return [{ json: { valid: true, contact_phone: from, message_text: String(msg.text.body).slice(0, 2000), message_id: msg.id || '', timestamp: msg.timestamp || '', type: msg.type || 'text' } }];\n    }\n    if (value.statuses && value.statuses.length > 0) { throw new Error('IGNORADO: status'); }\n  }\n}\nthrow new Error('IGNORADO: sin mensaje');"},
+      "id": "n7",
+      "name": "Normalizar Mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 208]
+    },
+    {
+      "parameters": {"method": "POST", "url": "={{ $env.SUPABASE_URL + '/rest/v1/contactos?on_conflict=tenant_id,telefono' }}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}"}, {"name": "Authorization", "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_KEY }}"}, {"name": "Prefer", "value": "resolution=merge-duplicates,return=representation"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { telefono: $json.contact_phone, tenant_id: $env.TENANT_ID } }}", "options": {}, "specifyHeaders": "keypair", "contentType": "json"},
+      "id": "n8",
+      "name": "Upsert Contacto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 208]
+    },
+    {
+      "parameters": {"jsCode": "// Encuentra la fila del contacto en cualquier forma de respuesta (array, body, anidado).\nconst findRow = (x) => {\n  if (Array.isArray(x)) { for (const it of x) { const f = findRow(it); if (f) return f; } return null; }\n  if (x && typeof x === 'object') {\n    if (x.id && (x.telefono || x.tenant_id)) return x;\n    for (const v of Object.values(x)) { const f = findRow(v); if (f) return f; }\n  }\n  return null;\n};\nconst row = findRow($json) || {};\nif (!row.id) { throw new Error('UPSERT-FALLO: ' + JSON.stringify($json).slice(0, 300)); }\nreturn [{ json: { contacto_id: row.id, tenant_id: row.tenant_id || null } }];"},
+      "id": "n9",
+      "name": "Contacto Listo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 208]
+    },
+    {
+      "parameters": {"operation": "getAll", "tableId": "conversaciones", "returnAll": false, "limit": 20, "orderBy": "created_at.desc", "filterType": "manual", "matchType": "allFilters", "filters": {"conditions": [{"keyName": "contacto_id", "condition": "eq", "keyValue": "={{ $('Contacto Listo').item.json.contacto_id }}"}]}},
+      "id": "n10",
+      "name": "Obtener Historial",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [960, 80]
+    },
+    {
+      "parameters": {"tableId": "conversaciones", "dataToSend": "defineBelow", "fieldsUi": {"fieldValues": [{"fieldId": "tenant_id", "fieldValue": "={{ $('Contacto Listo').item.json.tenant_id }}"}, {"fieldId": "contacto_id", "fieldValue": "={{ $('Contacto Listo').item.json.contacto_id }}"}, {"fieldId": "role", "fieldValue": "user"}, {"fieldId": "content", "fieldValue": "={{ $('Normalizar Mensaje').item.json.message_text }}"}]}},
+      "id": "n11",
+      "name": "Guardar Mensaje Usuario",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [960, 320]
+    },
+    {
+      "parameters": {"jsCode": "let historyRows = [];\ntry { historyRows = $('Obtener Historial').all().map(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r)); } catch (e) {}\nconst contents = historyRows.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] }));\ncontents.push({ role: 'user', parts: [{ text: $('Normalizar Mensaje').item.json.message_text }] });\nconst systemInstruction = $env.SYSTEM_PROMPT || 'Eres el asistente virtual del negocio. Responde corto y claro.';\nreturn [{ json: { model: 'gemini-flash-latest', contents, system_instruction: { parts: [{ text: systemInstruction }] } } }];"},
+      "id": "n12",
+      "name": "Preparar Contexto Gemini",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 208]
+    },
+    {
+      "parameters": {"method": "POST", "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "x-goog-api-key", "value": "={{ $env.GEMINI_API_KEY }}"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ $json }}", "options": {}, "specifyHeaders": "keypair", "contentType": "json"},
+      "id": "n13",
+      "name": "Gemini Responder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 208]
+    },
+    {
+      "parameters": {"jsCode": "const text = ($json.candidates && $json.candidates[0] && $json.candidates[0].content && $json.candidates[0].content.parts[0].text) || '';\nconst clean = text.replace(/\\[DERIVAR\\]/gi, '').replace(/\\[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nreturn [{ json: { raw: text, clean, needs_human: /\\[DERIVAR\\]/i.test(text), lead_marker: (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1] } }];"},
+      "id": "n14",
+      "name": "Extraer Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 208]
+    },
+    {
+      "parameters": {"tableId": "conversaciones", "dataToSend": "defineBelow", "fieldsUi": {"fieldValues": [{"fieldId": "tenant_id", "fieldValue": "={{ $('Contacto Listo').item.json.tenant_id }}"}, {"fieldId": "contacto_id", "fieldValue": "={{ $('Contacto Listo').item.json.contacto_id }}"}, {"fieldId": "role", "fieldValue": "assistant"}, {"fieldId": "content", "fieldValue": "={{ $json.clean }}"}]}},
+      "id": "n15",
+      "name": "Guardar Respuesta IA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1920, 208]
+    },
+    {
+      "parameters": {"resource": "message", "operation": "sendMessage", "chatId": "7309831214", "text": "={{ $('Extraer Respuesta').item.json.needs_human ? 'DERIVAR: contacto ' + $('Normalizar Mensaje').item.json.contact_phone + ' | ' + $('Extraer Respuesta').item.json.clean : '' }}", "additionalFields": {}},
+      "id": "n16",
+      "name": "Notificar Humano",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2160, 80],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {"operation": "send", "phoneNumberId": "=1277072472156993", "recipientPhoneNumber": "={{ $('Normalizar Mensaje').item.json.contact_phone }}", "textBody": "={{ $('Extraer Respuesta').item.json.clean }}", "additionalFields": {}},
+      "id": "n17",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [2160, 320]
+    }
+  ],
+  "connections": {
+    "Webhook": {"main": [[{"node": "IF Verificación", "type": "main", "index": 0}], [{"node": "Verificar Firma Meta", "type": "main", "index": 0}]]},
+    "IF Verificación": {"main": [[{"node": "Responder Challenge", "type": "main", "index": 0}], [{"node": "Verificar Firma Meta", "type": "main", "index": 0}]]},
+    "Verificar Firma Meta": {"main": [[{"node": "IF Firma OK", "type": "main", "index": 0}]]},
+    "IF Firma OK": {"main": [[{"node": "Normalizar Mensaje", "type": "main", "index": 0}], [{"node": "Responder Rechazo", "type": "main", "index": 0}]]},
+    "Normalizar Mensaje": {"main": [[{"node": "Upsert Contacto", "type": "main", "index": 0}]]},
+    "Upsert Contacto": {"main": [[{"node": "Contacto Listo", "type": "main", "index": 0}]]},
+    "Contacto Listo": {"main": [[{"node": "Obtener Historial", "type": "main", "index": 0}, {"node": "Guardar Mensaje Usuario", "type": "main", "index": 0}]]},
+    "Guardar Mensaje Usuario": {"main": [[{"node": "Preparar Contexto Gemini", "type": "main", "index": 0}]]},
+    "Preparar Contexto Gemini": {"main": [[{"node": "Gemini Responder", "type": "main", "index": 0}]]},
+    "Gemini Responder": {"main": [[{"node": "Extraer Respuesta", "type": "main", "index": 0}]]},
+    "Extraer Respuesta": {"main": [[{"node": "Guardar Respuesta IA", "type": "main", "index": 0}]]},
+    "Guardar Respuesta IA": {"main": [[{"node": "Notificar Humano", "type": "main", "index": 0}]]},
+    "Notificar Humano": {"main": [[{"node": "Enviar WhatsApp", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false}
+}
