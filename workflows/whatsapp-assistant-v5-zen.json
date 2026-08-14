@@ -280,7 +280,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const text = (($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || '');\nconst clean = text.replace(/\\[DERIVAR\\]/gi, '').replace(/\\[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nreturn [{ json: { raw: text, clean, needs_human: /\\[DERIVAR\\]/i.test(text), lead_marker: (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1] } }];"
+        "jsCode": "const text = (($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || '');\nconst clean = text.replace(/\\[DERIVAR\\]/gi, '').replace(/\\[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nconst userText = ($('Normalizar Mensaje').item.json.message_text || '').toLowerCase();\nconst HUMAN_RE = /(hablar con (alguien|un humano|una persona|un asesor|alguien real)|asesor humano|persona real|no me convence|no me gusta|queja|quejarme|molest|frustrad|insatisfech|ineficiente|mal servicio|estafa|llamar|llamada|representante|me canse|aburrid)/i;\nconst LEAD_RE = /(agendar|cita|reuni[oó]n|diagn[oó]stic|cotiz|propuest|presupuest|quiero (comprar|contratar|empezar)|me interesa)/i;\nconst marker = (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1];\nreturn [{ json: { raw: text, clean, needs_human: /\\[DERIVAR\\]/i.test(text) || HUMAN_RE.test(userText), lead_marker: marker || (LEAD_RE.test(userText) ? 'cita' : '') } }];"
       },
       "id": "n14",
       "name": "Extraer Respuesta",
@@ -386,7 +386,9 @@
       "position": [
         2400,
         120
-      ]
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Si el lead ya existe (409), se omite silenciosamente y el flujo continua."
     },
     {
       "parameters": {
