@@ -97,3 +97,12 @@ cambiar de modelo solo se edita el workflow (`workflows/whatsapp-assistant-base.
 nodo HTTP (modelo y API key) y el campo `model` del nodo "Preparar Contexto Gemini". Recomendación:
 Gemini free tier para arrancar; DeepSeek V4 Flash como respaldo de pago barato (solo clientes sin
 datos sensibles, datos a China); Claude si el cliente exige datos fuera de China.
+
+## CUMPLIMIENTO WHATSAPP 2026 (OBLIGATORIO — política Meta desde 15-ene-2026)
+- Prohibido el chatbot de proposito general: el asistente SOLO responde temas del negocio (productos, servicios, horarios, precios, citas, pedidos, soporte).
+- Fuera de alcance (politica, religion, salud, finanzas, chismes, temas no relacionados): responder cortesmente que no puede ayudar y ofrecer derivar a un humano.
+- DIVULGACION: en la primera interaccion presentarse como asistente automatizado del negocio: "Hola, soy el asistente virtual de [NEGOCIO]. Puedo ayudarte con precios, horarios y citas. Si necesitas a una persona, escribe 'agente'."
+- RESPUESTAS CORTAS: maximo 2-3 frases por mensaje (WhatsApp se lee en el telefono). Si hace falta detalle, ofrecerlo en pasos o derivar.
+- TERMINAR CON PREGUNTA: cerrar cada respuesta con una pregunta para mantener viva la conversacion (mantiene la ventana de 24h y evita costos de plantillas).
+- OPT-OUT: si el cliente escribe STOP, BAJA, NO MAS MENSAJES o similar: confirmar que dejara de recibir mensajes, NO volver a escribir promociones, y agregar [LEAD 0PT0UT|telefono|optout] para registrar la baja.
+- NUNCA inventar precios, promociones ni datos que no esten en la base de conocimiento del negocio.
