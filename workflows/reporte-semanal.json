@@ -1,0 +1,164 @@
+{
+  "name": "Reporte Semanal JeanCRG",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "r1",
+      "name": "Lunes 8AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/conversaciones?select=id,role,contacto_id,created_at&created_at=gt.' + encodeURIComponent($now.minus(7, 'days').toISO()) + '&limit=1000' }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "r2",
+      "name": "Obtener Conversaciones",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads?select=id,created_at&created_at=gt.' + encodeURIComponent($now.minus(7, 'days').toISO()) + '&limit=500' }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "r3",
+      "name": "Obtener Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const conv = $('Obtener Conversaciones').all().flatMap(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r));\nconst leads = $('Obtener Leads').all().flatMap(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r));\nconst usuarios = conv.filter(c => c.role === 'user').length;\nconst asistentes = conv.filter(c => c.role === 'assistant').length;\nconst contactosUnicos = new Set(conv.map(c => c.contacto_id)).size;\nconst texto = '📊 *Reporte Semanal — JeanCRG*\\n\\n💬 Conversaciones (7 dias): ' + conv.length + '\\n👤 Contactos activos: ' + contactosUnicos + '\\n📥 Mensajes de clientes: ' + usuarios + '\\n🤖 Respuestas del bot: ' + asistentes + '\\n🎯 Leads capturados: ' + leads.length + '\\n\\nSemana del ' + $now.minus(7, 'days').toFormat('dd/MM') + ' al ' + $now.toFormat('dd/MM/yyyy');\nreturn [{ json: { texto } }];"
+      },
+      "id": "r4",
+      "name": "Armar Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.telegram.org/bot8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E/sendMessage' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={{ { chat_id: 7309831214, text: $json.texto, parse_mode: 'Markdown' } }}",
+        "options": {}
+      },
+      "id": "r5",
+      "name": "Enviar Reporte Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Lunes 8AM": {
+      "main": [
+        [
+          {
+            "node": "Obtener Conversaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Conversaciones": {
+      "main": [
+        [
+          {
+            "node": "Obtener Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Leads": {
+      "main": [
+        [
+          {
+            "node": "Armar Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar Reporte": {
+      "main": [
+        [
+          {
+            "node": "Enviar Reporte Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
