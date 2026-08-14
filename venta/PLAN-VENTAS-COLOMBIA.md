@@ -72,6 +72,8 @@
 - [ ] Retainer activo en los clientes
 - **Meta: 3-5 clientes en retainer**
 
+**Estado 14-ago:** STOP24 respondió (pedidos directos por WhatsApp — prospecto vivo en fase Llamada). Don Pedro: número corregido a 301 5244793 (el 317 2419273 es de otro negocio/MOBO).
+
 **Regla de oro:** responder en <5 min cada conversación (el sistema avisa — la alerta de leads se reactiva cuando arranca el flujo).
 
 ---
