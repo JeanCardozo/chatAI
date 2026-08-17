@@ -3,3 +3,6 @@ node_modules/
 *.local
 creds.json
 .atl/
+
+# Test artifacts
+.playwright-mcp/
