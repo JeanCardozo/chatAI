@@ -1,0 +1,62 @@
+{
+  "name": "Panel Chat JeanCRG",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "panel-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "p1",
+      "name": "Webhook Panel",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "a37f7f52-3e1d-4836-88ca-209c5d217cc6"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Panel Chat — JeanCRG</title><style>\nbody{font-family:system-ui;margin:0;background:#0B1F3A;color:#fff;display:flex;height:100vh}\n#lista{width:280px;border-right:1px solid #2a3f63;overflow-y:auto;padding:10px}\n#lista h3{margin:8px 10px;color:#C9A227}\n.chat{padding:10px;border-radius:8px;cursor:pointer;border-bottom:1px solid #1e3357}\n.chat:hover,.chat.act{background:#16294a}\n.chat b{display:block;font-size:13px}.chat span{font-size:11px;color:#9fb2d4}\n#main{flex:1;display:flex;flex-direction:column}\n#header{padding:12px 16px;border-bottom:1px solid #2a3f63;font-weight:bold;color:#C9A227}\n#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}\n.msg{max-width:70%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.4}\n.msg.user{align-self:flex-start;background:#1e3357}\n.msg.bot{align-self:flex-end;background:#2f6f4f}\n.msg.humano{align-self:flex-end;background:#7a5a0a;border:1px solid #C9A227}\n.msg .t{display:block;font-size:10px;color:#9fb2d4;margin-top:3px}\n#inputbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a3f63}\n#inputbar input{flex:1;padding:11px;border-radius:8px;border:none;font-size:14px}\n#inputbar button{padding:11px 20px;border:none;border-radius:8px;background:#C9A227;color:#0B1F3A;font-weight:bold;cursor:pointer}\n#status{font-size:11px;color:#9fb2d4;padding:4px 16px}\n</style></head><body>\n<div id=\"lista\"><h3>Conversaciones</h3><div id=\"chats\"></div></div>\n<div id=\"main\"><div id=\"header\">Panel de WhatsApp</div><div id=\"status\">Cargando…</div><div id=\"msgs\"></div>\n<div id=\"inputbar\"><input id=\"txt\" placeholder=\"Escribe como humano…\"><button onclick=\"enviar()\">Enviar</button></div></div>\n<script>\nconst S = \"''' + SECRET + '''\";\nlet chats = [], actual = null;\nasync function api(p, body){const o={method:body?'POST':'GET'};if(body){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(body)}const r=await fetch('/webhook/'+p+'?secret='+S,o);return r.json()}\nasync function cargar(){const d=await api('panel-chats');chats=d.chats||[];const el=document.getElementById('chats');el.innerHTML='';\nchats.forEach(c=>{const d=document.createElement('div');d.className='chat';d.innerHTML='<b>'+c.telefono+'</b><span>'+c.ultimo+' · '+c.mensajes+' msgs</span>';\nd.onclick=()=>ver(c.contacto_id,c.telefono);el.appendChild(d)})}\nasync function ver(id,telefono){actual=id;document.getElementById('header').textContent=telefono;const d=await api('panel-mensajes?contacto='+id);const m=document.getElementById('msgs');m.innerHTML='';\n(d.mensajes||[]).forEach(x=>{const div=document.createElement('div');let cls='bot';if(x.role==='user')cls='user';if(x.derivado_a_humano)cls='humano';\ndiv.className='msg '+cls;div.innerHTML=x.content+'<span class=\"t\">'+x.fecha+' '+(x.derivado_a_humano?'· humano':'')+'</span>';m.appendChild(div)});m.scrollTop=m.scrollHeight}\nasync function enviar(){const t=document.getElementById('txt').value.trim();if(!t||!actual)return;await api('panel-responder',{contacto_id:actual,texto:t});document.getElementById('txt').value='';ver(actual,document.getElementById('header').textContent)}\ncargar();\n</script></body></html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "p2",
+      "name": "Enviar HTML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Panel": {
+      "main": [
+        [
+          {
+            "node": "Enviar HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

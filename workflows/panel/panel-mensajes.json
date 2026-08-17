@@ -1,0 +1,110 @@
+{
+  "name": "Panel Mensajes",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "panel-mensajes",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "m1",
+      "name": "Webhook Mensajes",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "d1bd5540-1ab7-4a74-884c-8c965723f343"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "conversaciones",
+        "options": {
+          "limit": 500
+        }
+      },
+      "id": "m2",
+      "name": "Traer Conversaciones",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = ($('Webhook Mensajes').item.json.query || {});\nif (q.secret !== 'jeancrg2026panel') return [{ json: { error: 'no-auth' } }];\nconst cid = q.contacto;\nconst rows = $('Traer Conversaciones').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object' && x.contacto_id === cid);\nrows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));\nconst mensajes = rows.map(m => ({ role: m.role, content: m.content, derivado_a_humano: !!m.derivado_a_humano, fecha: (m.created_at || '').slice(0, 16) }));\nreturn [{ json: { mensajes } }];"
+      },
+      "id": "m3",
+      "name": "Filtrar y Ordenar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "m4",
+      "name": "Responder JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Mensajes": {
+      "main": [
+        [
+          {
+            "node": "Traer Conversaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traer Conversaciones": {
+      "main": [
+        [
+          {
+            "node": "Filtrar y Ordenar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar y Ordenar": {
+      "main": [
+        [
+          {
+            "node": "Responder JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

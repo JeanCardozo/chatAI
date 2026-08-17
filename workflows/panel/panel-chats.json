@@ -1,0 +1,144 @@
+{
+  "name": "Panel Listar Chats",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "panel-chats",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "l1",
+      "name": "Webhook Listar",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "2cc7ee26-3cc6-4a83-b047-1eab6b2f0e7a"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "conversaciones",
+        "options": {
+          "limit": 300
+        }
+      },
+      "id": "l2",
+      "name": "Traer Conversaciones",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sec = (($('Webhook Listar').item.json.query || {}).secret);\nif (sec !== 'jeancrg2026panel') return [{ json: { error: 'no-auth' } }];\nconst rows = $('Traer Conversaciones').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object');\nconst contactos = $('Traer Contactos').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object');\nconst cmap = {}; for (const c of contactos) cmap[c.id] = c;\nconst siete = Date.now() - 7*24*3600*1000;\nconst map = {};\nfor (const c of rows) {\n  const t = new Date(c.created_at).getTime();\n  if (isNaN(t) || t < siete) continue;\n  const k = c.contacto_id;\n  if (!map[k]) map[k] = { contacto_id: k, telefono: (cmap[k] && cmap[k].telefono) || '', nombre: (cmap[k] && cmap[k].nombre) || '', mensajes: 0, ultimo: '' };\n  map[k].mensajes++;\n  if (!map[k].ultimo || c.created_at > map[k].ultimo) map[k].ultimo = c.created_at;\n}\nconst chats = Object.values(map).map(c => ({ ...c, ultimo: (c.ultimo || '').slice(0, 16) }));\nreturn [{ json: { chats } }];"
+      },
+      "id": "l3",
+      "name": "Agrupar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "l4",
+      "name": "Responder JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "contactos",
+        "options": {
+          "limit": 300
+        }
+      },
+      "id": "lc",
+      "name": "Traer Contactos",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Listar": {
+      "main": [
+        [
+          {
+            "node": "Traer Conversaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traer Conversaciones": {
+      "main": [
+        [
+          {
+            "node": "Traer Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traer Contactos": {
+      "main": [
+        [
+          {
+            "node": "Agrupar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar": {
+      "main": [
+        [
+          {
+            "node": "Responder JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

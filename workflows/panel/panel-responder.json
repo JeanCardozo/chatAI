@@ -1,0 +1,227 @@
+{
+  "name": "Panel Responder Manual",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "panel-responder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "r1",
+      "name": "Webhook Responder",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "46062e7b-1ff1-4cc0-8151-1e886a30c339"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nif (b.secret !== 'jeancrg2026panel' || !b.contacto_id || !b.texto) return [{ json: { error: 'bad' } }];\nreturn [{ json: { ok: true, contacto_id: b.contacto_id, texto: b.texto } }];"
+      },
+      "id": "r2",
+      "name": "Validar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "contactos",
+        "options": {
+          "select": "*"
+        }
+      },
+      "id": "r0",
+      "name": "Traer Contacto",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cid = $('Validar').item.json.contacto_id;\nconst c = $('Traer Contacto').all().flatMap(i => i.json).flat(1).find(x => x && x.id === cid);\nif (!c || !c.telefono) return [{ json: { error: 'no-contact', contacto_id: cid } }];\nreturn [{ json: { telefono: c.telefono, texto: $('Validar').item.json.texto, contacto_id: cid } }];"
+      },
+      "id": "r5",
+      "name": "Buscar Telefono",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "phoneNumberId": "1309447485585504",
+        "recipientPhoneNumber": "={{ $json.telefono }}",
+        "text": "={{ $json.texto }}",
+        "replyMarkup": "none",
+        "additionalFields": {}
+      },
+      "id": "r3",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        920,
+        300
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "6VGfb6G3U13AcaS5",
+          "name": "WhatsApp account"
+        }
+      },
+      "webhookId": "7299994c-2e2d-431f-afe4-8de39d7f6d23"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "conversaciones",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "value": [
+            {
+              "fieldName": "contacto_id",
+              "fieldValue": "={{ $('Buscar Telefono').item.json.contacto_id }}"
+            },
+            {
+              "fieldName": "tenant_id",
+              "fieldValue": "d2f0d3a0-0000-4000-8000-000000000001"
+            },
+            {
+              "fieldName": "role",
+              "fieldValue": "assistant"
+            },
+            {
+              "fieldName": "content",
+              "fieldValue": "={{ $json.texto }}"
+            },
+            {
+              "fieldName": "derivado_a_humano",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "r4",
+      "name": "Guardar Respuesta Humana",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true } }}"
+      },
+      "id": "r6",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        1400,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Responder": {
+      "main": [
+        [
+          {
+            "node": "Validar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar": {
+      "main": [
+        [
+          {
+            "node": "Traer Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traer Contacto": {
+      "main": [
+        [
+          {
+            "node": "Buscar Telefono",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Telefono": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta Humana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Respuesta Humana": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
