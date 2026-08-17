@@ -280,7 +280,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const text = (($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || '');\nconst clean = text.replace(/\\[DERIVAR\\]/gi, '').replace(/\\[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nconst userText = ($('Normalizar Mensaje').item.json.message_text || '').toLowerCase();\nconst HUMAN_RE = /(hablar con (alguien|un humano|una persona|un asesor|alguien real)|asesor humano|persona real|no me convence|no me gusta|queja|quejarme|molest|frustrad|insatisfech|ineficiente|mal servicio|estafa|llamar|llamada|representante|me canse|aburrid)/i;\nconst LEAD_RE = /(agendar|cita|reuni[oó]n|diagn[oó]stic|cotiz|propuest|presupuest|quiero (comprar|contratar|empezar)|me interesa)/i;\nconst marker = (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1];\nreturn [{ json: { raw: text, clean, needs_human: /\\[DERIVAR\\]/i.test(text) || HUMAN_RE.test(userText), lead_marker: marker || (LEAD_RE.test(userText) ? 'cita' : '') } }];"
+        "jsCode": "const text = (($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || '');\nconst clean = text.replace(/\\[DERIVAR\\]/gi, '').replace(/\\[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nconst userText = ($('Normalizar Mensaje').item.json.message_text || '').toLowerCase();\nconst HUMAN_RE = /(hablar con (alguien|un humano|una persona|un asesor|alguien real)|asesor humano|persona real|no me convence|no me gusta|queja|quejarme|molest|frustrad|insatisfech|ineficiente|mal servicio|estafa|llamar|llamada|representante|me canse|aburrid)/i;\nconst LEAD_RE = /(agendar|cita|reuni[oó]n|diagn[oó]stic|cotiz|propuest|presupuest|quiero (comprar|contratar|empezar)|me interesa)/i;\nconst PEDIDO_RE = /(pedido|quiero (pedir|ordenar|encargar|reservar)|me llevo|hacer (un|mi) pedido|domicilio|delivery|a domicilio|talla|disponibilidad)/i;\nconst PAGO_RE = /(pagar|pago|transferenc|nequi|daviplata|davi|tarjeta|bono|cup[oó]n|promoci[oó]n|adelanto|consignaci[oó]n)/i;\nconst marker = (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1];\nlet evento = 'none';\nif (/\\[DERIVAR\\]/i.test(text) || HUMAN_RE.test(userText)) evento = 'derivar';\nelse if (marker || LEAD_RE.test(userText)) evento = 'lead';\nelse if (PAGO_RE.test(userText)) evento = 'pago';\nelse if (PEDIDO_RE.test(userText)) evento = 'pedido';\nreturn [{ json: { raw: text, clean, needs_human: evento === 'derivar', lead_marker: marker || (LEAD_RE.test(userText) ? 'cita' : ''), evento } }];"
       },
       "id": "n14",
       "name": "Extraer Respuesta",
@@ -375,7 +375,28 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.es_lead ? [{ tenant_id: $('Contacto Listo').item.json.tenant_id, contacto_id: $('Contacto Listo').item.json.contacto_id, nombre: $json.nombre, telefono: $json.telefono, interes: $json.interes, estado: 'nuevo', source: 'whatsapp' }] : [] }}",
-        "options": {}
+        "options": {},
+        "jsCode": {
+          "method": "POST",
+          "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.es_lead ? [{ tenant_id: $('Contacto Listo').item.json.tenant_id, contacto_id: $('Contacto Listo').item.json.contacto_id, nombre: $json.nombre, telefono: $json.telefono, interes: $json.interes, estado: 'nuevo', source: 'whatsapp' }] : [] }}",
+          "options": {}
+        }
       },
       "id": "n19b",
       "name": "Guardar Lead",
@@ -390,7 +411,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Solo notifica cuando Gemini marco [DERIVAR].\nconst extra = $('Extraer Respuesta').item.json;\nconst notificar = Boolean(extra.needs_human);\nconst texto = notificar ? 'DERIVAR: contacto ' + $('Normalizar Mensaje').item.json.contact_phone + ' | ' + extra.clean : '';\nreturn [{ json: { notificar, texto } }];"
+        "jsCode": "const extra = $('Extraer Respuesta').item.json;\nconst phone = $('Normalizar Mensaje').item.json.contact_phone;\nconst evento = extra.evento || 'none';\nconst emojis = { derivar: '🚨 DERIVAR', lead: '📅 LEAD', pedido: '🛒 PEDIDO', pago: '💰 PAGO' };\nconst notificar = evento !== 'none';\nconst texto = notificar ? (emojis[evento] + ': ' + phone + ' | ' + extra.clean) : '';\nreturn [{ json: { notificar, texto } }];"
       },
       "id": "n20",
       "name": "Preparar Notificacion",
