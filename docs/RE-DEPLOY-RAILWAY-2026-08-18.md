@@ -1,151 +1,328 @@
-# RE-DEPLOY COMPLETO — RAILWAY NUEVO (18-ago-2026)
+# RE-DEPLOY COMPLETO DESDE CERO — RAILWAY (18-ago-2026)
 
-> **Contexto**: expiró el trial de Railway anterior. Nueva cuenta = nueva URL de n8n = hay que
-> recrear instancia, credenciales, workflows y re-apuntar el webhook de Meta.
-> Lo que NO cambia: Supabase, el WABA/Número (viven en Meta), el System User token, los workflows del repo.
-
-**Hora de inicio del plan: martes 18-ago-2026 15:52 (-05 Colombia).**
-Tiempo estimado total: **45–75 min**.
+> Instrucciones definitivas para montar **n8n + bot WhatsApp + panel premium** en tu cuenta
+> Railway NUEVA (trial 30 días), desde vacío hasta prospectos contactados.
+> Hora de inicio: **martes 18-ago-2026 ~16:00 (-05 Colombia)** · Tiempo total: **60–90 min**.
 
 ---
 
-## PASO 0 — Lo que necesitas tener a la mano (5 min)
-| # | Dato | Dónde está |
-|---|------|-----------|
-| 0.1 | **URL nueva de n8n** (te la da Railway al desplegar) | Railway dashboard |
-| 0.2 | **Token permanente** del System User (EAA...) | Business Settings → System Users (lo creaste ayer) |
-| 0.3 | Acceso a n8n nuevo (email + password que pongas) | Railway |
-| 0.4 | `.env` local del repo (tiene SUPABASE_URL, SUPABASE_SERVICE_KEY, META_APP_SECRET, etc.) | `/home/jeancardozo/Documentos/MarcaPersonal/chatAI/.env` |
-| 0.5 | Los 6 workflows listos en el repo ✅ | `workflows/whatsapp-assistant-v5-zen.json`, `workflows/reporte-semanal.json`, `workflows/panel/*.json` |
+## 🧱 ARQUITECTURA (qué vamos a montar)
 
----
-
-## PASO 1 — Desplegar n8n en el Railway nuevo (10 min)
-1. Railway → **New Project** → **Deploy from template** → busca **n8n** → Deploy.
-2. Espera a que el deploy termine (Build + Deploy verdes).
-3. **Settings → Networking → Generate Domain** → copia la URL (ej. `https://n8n-xxxx.up.railway.app`).
-4. **Variables de entorno** (Settings → Variables → New Variable). Copia EXACTAS desde tu `.env` local:
-
-| Variable | Valor (de `.env`) |
-|---|---|
-| `N8N_BLOCK_ENV_ACCESS_IN_NODE` | `false` |
-| `GENERIC_TIMEZONE` | `America/Bogota` |
-| `N8N_SECURE_COOKIE` | `false` |
-| `META_APP_SECRET` | valor de `.env` |
-| `OPENCODE_API_KEY` | valor de `.env` |
-| `SUPABASE_URL` | valor de `.env` |
-| `SUPABASE_SERVICE_KEY` | valor de `.env` |
-| `TELEGRAM_BOT_TOKEN` | valor de `.env` |
-| `TENANT_ID` | `d2f0d3a0-0000-4000-8000-000000000001` |
-| `WHATSAPP_BUSINESS_PHONE` | `573118931609` |
-| `WEBHOOK_VERIFY_SIGNATURE` | `false` |
-
-> ⚠️ `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` es **obligatorio**: los nodos del workflow leen `$env.*`.
-
-5. Abre la URL → crea tu cuenta admin de n8n (email + password) → entra.
-
----
-
-## PASO 2 — Crear las 2 credenciales ANTES de importar (5 min)
-> Los workflows importan **por NOMBRE**; usa estos nombres EXACTOS.
-
-1. n8n → **Credentials** → **Add credential**:
-   - **Credential 1**: tipo **Supabase** → nombre `Supabase account`
-     - Host: `db.jipzgsspwnntbnzjniwu.supabase.co` · Database: `postgres` · User: `postgres` · Password: **Service Role Key** (de `.env` SUPABASE_SERVICE_KEY, NO la anon).
-   - **Credential 2**: tipo **WhatsApp** → nombre `WhatsApp account`
-     - Access Token: **token permanente EAA** (System User, paso 0.2) · Phone Number ID: `1309447485585504` · API Version: `v21.0`
-
----
-
-## PASO 3 — Importar los 6 workflows (10 min)
-n8n → **Workflows → Add workflow → ⋯ (menú) → Import from File**, uno por uno:
-
-| Archivo | Nombre al importar | Activar? |
-|---|---|---|
-| `workflows/whatsapp-assistant-v5-zen.json` | WhatsApp Assistant Base - P1 | ✅ activar |
-| `workflows/reporte-semanal.json` | Reporte Semanal | ✅ activar |
-| `workflows/panel/panel-chat.json` | Panel Chat | ✅ activar |
-| `workflows/panel/panel-chats.json` | Panel Listar Chats | ✅ activar |
-| `workflows/panel/panel-mensajes.json` | Panel Mensajes | ✅ activar |
-| `workflows/panel/panel-responder.json` | Panel Responder Manual | ✅ activar |
-
-Después de importar CADA UNO:
-1. Ábrelo → verifica que los nodos muestren las credenciales conectadas (si algún nodo pide credencial, selecciona la creada en Paso 2 — el v5 ya viene con referencias, solo confirma).
-2. **Active toggle ON** (arriba a la derecha) en los 6.
-3. En **Panel Responder Manual**: revisa el nodo *Enviar WhatsApp* → `Phone Number ID` debe ser `1309447485585504` y el credential WhatsApp account. ✅ (viene así).
-4. Webhooks visibles (Workflows → abrir → abajo "Production URL"):
-   - `POST …/webhook/whatsapp`
-   - `GET …/webhook/panel-chat?secret=jeancrg2026panel`
-   - `GET …/webhook/panel-chats`
-   - `GET …/webhook/panel-mensajes`
-   - `POST …/webhook/panel-responder`
-
----
-
-## PASO 4 — Probar los endpoints (5 min)
-Desde tu máquina (terminal) sustituyendo `<NUEVA-URL>`:
-```bash
-curl "<NUEVA-URL>/webhook/panel-chat?secret=jeancrg2026panel" | head -c 80   # → <!DOCTYPE html>
-curl "<NUEVA-URL>/webhook/panel-chats?secret=jeancrg2026panel"                # → {"chats":[...]}
-curl "<NUEVA-URL>/webhook/panel-mensajes?secret=jeancrg2026panel&contacto=ce945dfe-e6ad-484e-86da-79a099f3457f"
+```
+                    ┌─────────────────────────────────────────┐
+  Cliente WhatsApp →│ n8n (Railway, Docker)                   │
+  (311 893 1609)    │  · Webhook /webhook/whatsapp  ← Meta    │
+                    │  · Workflow BOT (mimo-v2.5 IA)          │
+                    │  · Workflow REPORTE semanal             │
+                    │  · Workflow PANEL (chat/listar/         │
+                    │    mensajes/responder)  ← tú (navegador)│
+                    └──────┬──────────────┬───────────────────┘
+                           │              │
+                     Supabase         Telegram
+                  (contactos,     (alertas 🚨 DERIVAR,
+                   conversaciones,  📅 LEAD, etc.)
+                   leads, prospectos)
 ```
 
+| Componente | Tecnología | Dónde vive | Estado |
+|---|---|---|---|
+| Orquestador (n8n) | Docker `n8nio/n8n:2.34.5` | Railway (nuevo) | 🔴 re-montar |
+| Base interna de n8n | SQLite (viene en el contenedor) | Railway volumen | 🔴 re-montar |
+| Base de negocio | **Supabase** (ya existe) | `jipzgsspwnntbnzjniwu` | ✅ intacta |
+| Número/WABA | Meta Cloud API | Meta (NO cambia) | ✅ intacto |
+| IA | OpenCode GO `mimo-v2.5` | API externa | ✅ intacta |
+| Alertas | Telegram | API externa | ✅ intacta |
+
 ---
 
-## PASO 5 — Re-apuntar el webhook de Meta (5 min)
-> Meta sigue enviando a la URL VIEJA hasta que hagas esto.
+## PARTE A — DECISIÓN DE BASE DE DATOS (2 min)
+
+**Recomendado para el trial: SQLite** (base interna que viene DENTRO del contenedor n8n).
+- ✅ Cero servicios extra, cero configuración, igual que la instancia anterior.
+- ⚠️ Vive en el disco efímero de Railway: si borras el servicio, pierdes workflows/credenciales
+  (por eso EXPORTAMOS todo al repo — ya está).
+- Migrar a Postgres después es sencillo (ver Apéndice B).
+
+> La base de datos **de negocio** (contactos, conversaciones, prospectos) ya está en Supabase
+> y NO se toca. Lo que montamos hoy es solo la base INTERNA de n8n (workflows + credenciales).
+
+---
+
+## PARTE B — DESPLEGAR N8N EN RAILWAY (15 min)
+
+### Paso 1. Cuenta Railway nueva
+1. Entra a [railway.app](https://railway.app) con la cuenta que creaste (la del nuevo trial).
+2. Confirma el plan: **Hobby / trial 30 días** (sin tarjeta si es el trial nuevo).
+
+### Paso 2. Crear el proyecto con la imagen Docker
+**Opción A — Template (recomendada, 2 clics):**
+1. **New Project → Deploy from template** → busca **n8n** → **Deploy**.
+2. Railway crea el servicio con la imagen `n8nio/n8n` (última estable) y el puerto correcto.
+
+**Opción B — Docker image manual (control total):**
+1. **New Project → Deploy from image** (o Empty → New Service → Docker Image).
+2. **Image**: `n8nio/n8n:2.34.5`  ← **pínchala** (es la versión EXACTA que generó nuestros workflows; evita sorpresas de importación).
+3. **Port**: `5678` (n8n escucha ahí por defecto).
+
+### Paso 3. Variables de entorno (el paso MÁS crítico)
+En el servicio → **Variables → New Variable**. Copia EXACTAMENTE:
+
+```bash
+# n8n
+N8N_ENCRYPTION_KEY=e810b20a87a69254a8138e7978dcabdd
+N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+GENERIC_TIMEZONE=America/Bogota
+N8N_SECURE_COOKIE=false
+PORT=5678
+
+# Meta (firma del webhook)
+META_APP_SECRET=72c2a7dbb9a37b213ed916342b0b226d
+WEBHOOK_VERIFY_SIGNATURE=false
+
+# IA (OpenCode GO / mimo-v2.5)
+OPENCODE_API_KEY=sk-Eks6X1tmNzGBr77pBWcSkvyDOdTlNDxGFQtM5mCXuK28qbtXV6JuH8ULMgU5aQVw
+
+# Supabase (datos de negocio)
+SUPABASE_URL=https://jipzgsspwnntbnzjniwu.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcHpnc3Nwd25udGJuempuaXd1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjY1MzQ1NSwiZXhwIjoyMTAyMjI5NDU1fQ.yRVakE1dbtMuT_9SiXtdHZ-PZOl8kFyWWDm5GWyunaI
+TENANT_ID=d2f0d3a0-0000-4000-8000-000000000001
+
+# WhatsApp (número real)
+WHATSAPP_BUSINESS_PHONE=573118931609
+
+# Telegram (alertas de derivación)
+TELEGRAM_BOT_TOKEN=8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E
+```
+
+⚠️ **ADVERTENCIAS**:
+- `N8N_ENCRYPTION_KEY` es la clave que cifra las credenciales de n8n. **Grábala** (ya está en tu `.env`). Si cambia, las credenciales guardadas quedan ilegibles.
+- `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` es OBLIGATORIA: los nodos del workflow leen `$env.*`.
+- **NO** copies `WHATSAPP_ACCESS_TOKEN` a las variables: el token va DENTRO de la credencial WhatsApp de n8n (Paso 6), porque aquí usarás el token PERMANENTE del System User.
+- **NO** actives `N8N_BASIC_AUTH_*` (la instancia nueva usa su propia cuenta admin; el basic auth solo complica).
+
+### Paso 4. Dominio público
+1. **Settings → Networking → Generate Domain**.
+2. Copia la URL: será algo como `https://n8n-XXXX.up.railway.app` → **anótala** (la usarás 10 veces).
+
+### Paso 5. Cuenta admin de n8n
+1. Abre la URL → n8n te pide crear la cuenta.
+2. Email: `jean.cardozo.ramirez.23@gmail.com` · Password: **el que quieras** (guárdalo en tu gestor).
+
+---
+
+## PARTE C — CREDENCIALES EN N8N (5 min)
+
+**Antes de importar workflows** (n8n conecta las credenciales **por nombre**):
+
+### Credencial 1: Supabase
+1. n8n → **Credentials → Add credential** → tipo **Supabase**.
+2. **Name**: `Supabase account`
+3. Campos:
+   - **Host**: `db.jipzgsspwnntbnzjniwu.supabase.co`
+   - **Database**: `postgres`
+   - **User**: `postgres`
+   - **Password**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcHpnc3Nwd25udGJuempuaXd1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjY1MzQ1NSwiZXhwIjoyMTAyMjI5NDU1fQ.yRVakE1dbtMuT_9SiXtdHZ-PZOl8kFyWWDm5GWyunaI` ← la **Service Role Key** (NO la anon).
+4. **Save**.
+
+### Credencial 2: WhatsApp
+1. **Credentials → Add credential** → tipo **WhatsApp**.
+2. **Name**: `WhatsApp account`
+3. Campos:
+   - **Access Token**: `EAA...` ← tu **token PERMANENTE del System User** (Business Settings → System Users). Si aún no lo tienes a la mano: copia el temporal de Meta for Developers AHORA y lo reemplazas mañana (el bot dejará de responder en ~24h hasta cambiarlo — por eso el permanente es prioridad).
+   - **Phone Number ID**: `1309447485585504`
+   - **API Version**: `v21.0`
+4. **Save** y haz clic en **Test** → debe decir conectado.
+
+---
+
+## PARTE D — IMPORTAR LOS 6 WORKFLOWS (10 min)
+
+Los archivos ya están en el repo listos para importar:
+```
+/home/jeancardozo/Documentos/MarcaPersonal/chatAI/workflows/
+├── whatsapp-assistant-v5-zen.json      ← BOT (ya corregido: número real + credenciales)
+├── reporte-semanal.json                ← Reporte Telegram
+└── panel/
+    ├── panel-chat.json                 ← Panel premium (nueva UI)
+    ├── panel-chats.json                ← Lista chats
+    ├── panel-mensajes.json             ← Mensajes de un chat
+    └── panel-responder.json            ← Responder como humano
+```
+
+1. n8n → **Workflows → Add workflow** (o usa el menú ⋯ → **Import from File**).
+2. Importa los 6 archivos, uno por uno.
+3. Por CADA workflow importado:
+   - Ábrelo → **Active toggle ON** (arriba a la derecha).
+   - Confirma que los nodos de Supabase/WhatsApp muestren la credencial conectada (si alguno la pide, selecciona la del Paso C).
+
+Los 6 webhooks que quedan activos:
+| Endpoint | Uso |
+|---|---|
+| `POST …/webhook/whatsapp` | Recibe mensajes de Meta |
+| `GET …/webhook/panel-chat?secret=jeancrg2026panel` | Panel (tu bandeja) |
+| `GET …/webhook/panel-chats?secret=…` | API lista de chats |
+| `GET …/webhook/panel-mensajes?secret=…&contacto=…` | API mensajes |
+| `POST …/webhook/panel-responder` | API enviar como humano |
+| `POST …/webhook/reporte-semanal` | Reporte semanal (cron interno, no lo llames a mano) |
+
+---
+
+## PARTE E — PROBAR (10 min)
+
+### E1. Los endpoints (desde tu terminal)
+```bash
+URL="https://<TU-NUEVA-URL>.up.railway.app"   # reemplaza
+
+curl "$URL/webhook/panel-chat?secret=jeancrg2026panel" | head -c 60   # → <!DOCTYPE html>
+curl "$URL/webhook/panel-chats?secret=jeancrg2026panel"                # → {"chats":[...]}
+curl "$URL/webhook/panel-mensajes?secret=jeancrg2026panel&contacto=ce945dfe-e6ad-484e-86da-79a099f3457f"
+```
+
+### E2. Re-apuntar el webhook de Meta (5 min) ← SIN ESTO EL BOT NO RECIBE NADA
 1. [developers.facebook.com/apps/2474899282989774/whatsapp-business/wa-settings](https://developers.facebook.com/apps/2474899282989774/whatsapp-business/wa-settings)
-2. **Configuration → Callback URL** = `<NUEVA-URL>/webhook/whatsapp` · **Verify token** = `jeancrg2026` → **Verify and save**.
-3. Si pide campos: suscribe `messages` (y `message_deliveries`, `message_reads`).
-4. **Verifica**: App → WhatsApp → Configuration → abajo "Webhook fields" → `messages` debe estar **subscribed** (si se reseteó, clic **Subscribe**).
-5. OPCIONAL (solo si el webhook dejó de responder): en Graph API Explorer (token System User) ejecutar:
+2. **Configuration**:
+   - **Callback URL**: `https://<TU-NUEVA-URL>.up.railway.app/webhook/whatsapp`
+   - **Verify token**: `jeancrg2026`
+   - Botón **Verify and save** → debe decir *"Webhook successfully verified"*.
+3. Abajo, **Webhook fields**: marca `messages` (y opcional `message_deliveries`, `message_reads`) → **Subscribe**.
+4. Si pide re-suscribir los WABAs: Graph API Explorer con el token System User → ejecuta:
    - `POST /1938299874223709/subscribed_apps`
    - `POST /1389146220090009/subscribed_apps`
 
----
-
-## PASO 6 — Prueba de extremo a extremo (10 min)
+### E3. Prueba de extremo a extremo
 1. Desde tu WhatsApp personal escribe **"Hola"** al **311 893 1609**.
-2. Espera 5–10 s → debe llegar la respuesta del bot con saludo.
-3. Abre el panel nuevo: `<NUEVA-URL>/webhook/panel-chat?secret=jeancrg2026panel` → el chat aparece.
-4. Envía una respuesta manual desde el panel → debe llegar a tu teléfono y verse en dorado "TÚ".
-5. Pídele al bot algo que derive a humano → debe llegar el 🚨 a tu Telegram.
-6. Revisa Supabase: tabla `conversaciones` tiene los registros nuevos.
+2. 5–10 s → llega la respuesta del bot (saludo).
+3. Abre el panel → ves el chat → responde manualmente → llega a tu teléfono y se ve **dorado TÚ**.
+4. Pídele algo que derive a humano → llega **🚨 DERIVAR** a tu Telegram.
+5. Revisa Supabase: filas nuevas en `conversaciones`.
 
 ---
 
-## PASO 7 — Actualizar tu `.env` local (2 min)
+## PARTE F — ACTUALIZAR TU `.env` LOCAL (2 min)
+
 ```bash
 cd /home/jeancardozo/Documentos/MarcaPersonal/chatAI
-# editar .env:
-#   N8N_URL=<NUEVA-URL>
-#   WHATSAPP_ACCESS_TOKEN=<token permanente EAA>
+nano .env   # o tu editor
+```
+Cambia:
+```
+N8N_URL=https://<TU-NUEVA-URL>.up.railway.app
+WHATSAPP_ACCESS_TOKEN=<token permanente EAA>
 ```
 
 ---
 
-## PASO 8 — ¡A prospectar! (resto del día)
-Los mensajes están listos (ver abajo). No dependen de n8n: se envían desde tu WhatsApp personal.
-- Toque 1 a los 11 NUEVOS (lista con mensaje).
-- Toque 2 a los originales sin respuesta + Don Pedro (número corregido) + Ferretería (respondió Ronald).
-- Cuando respondan → ábreles la ventana 24h → el bot los atiende SOLO.
+## PARTE G — PENDIENTES QUE COMPLETAN EL SISTEMA
+
+### G1. Tabla `prospectos` (para el follow-up de 5 toques)
+En [Supabase → SQL Editor](https://supabase.com/dashboard/project/jipzgsspwnntbnzjniwu/sql) ejecuta:
+
+```sql
+create table if not exists public.prospectos (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null default 'd2f0d3a0-0000-4000-8000-000000000001'::uuid,
+  nombre text not null,
+  negocio text,
+  telefono text not null unique,
+  estado text not null default 'nuevo',       -- nuevo|contactado|interesado|demo|cliente|no_interesado
+  toque int not null default 0,               -- 0..5 toques
+  fecha_ultimo_toque timestamptz,
+  notas text,
+  created_at timestamptz not null default now()
+);
+alter table public.prospectos enable row level security;
+create policy "service role full" on public.prospectos for all using (true) with check (true);
+```
+
+### G2. Plantillas Meta (mensajes iniciados por el negocio)
+Necesarias para el follow-up automático (día 2, 5, 9…): en
+[Manager → WhatsApp → Plantillas](https://business.facebook.com/wa/manage/message-templates/)
+crear: `bienvenida`, `seguimiento_1`, `seguimiento_2`, `demo_confirmada` (español, categoría Marketing/Utility, aprobación ~minutos). El número ya está VERIFICADO → las plantillas no requieren revisión previa.
 
 ---
 
-## Datos de referencia (no los pierdas)
-- **Número**: `+57 311 8931609` · **WABA NativaSoft**: `1938299874223709` · **Phone ID**: `1309447485585504`
-- **WABA test**: `1389146220090009` · **Test phone ID**: `1277072472156993`
-- **App Meta**: `2474899282989774` · **Business**: `1910243769625661` · **Verify token**: `jeancrg2026`
-- **Panel secret**: `jeancrg2026panel` · **Telegram chat**: `7309831214`
-- **Supabase**: `jipzgsspwnntbnzjniwu` · **Tenant**: `d2f0d3a0-0000-4000-8000-000000000001`
-- **Bot**: modelo `mimo-v2.5` (OpenCode GO) · prompt embebido en el nodo "Preparar Contexto Gemini"
+## PARTE H — CONTACTAR PROSPECTOS YA MISMO (30–45 min)
 
-## Checklist final
-- [ ] Paso 1: instancia + variables ✅
-- [ ] Paso 2: 2 credenciales (Supabase account, WhatsApp account)
-- [ ] Paso 3: 6 workflows importados y ACTIVOS
-- [ ] Paso 4: endpoints responden
-- [ ] Paso 5: webhook Meta re-apuntado (Verify OK)
-- [ ] Paso 6: E2E (Hola → bot → panel → responder → Telegram)
-- [ ] Paso 7: .env actualizado
-- [ ] Paso 8: prospectos contactados
+### H1. A los 11 NUEVOS (toque 1) — desde tu WhatsApp personal
+Mensaje base (personaliza el nombre y el negocio):
+> ¡Hola [nombre]! 👋 Soy Jean, de JeanCRG. Vi que [negocio] trabaja por WhatsApp y quería mostrarle algo: un asistente con IA que responde solo, agenda citas y captura clientes las 24 horas. ¿Le interesa una demo de 5 minutos? Sin compromiso.
+
+| # | Prospecto | Teléfono |
+|---|---|---|
+| 1 | Animalía | 317 276 6086 |
+| 2 | Servicios Vet Tolima | 310 320 3337 |
+| 3 | Sierra | 316 442 1364 |
+| 4 | Zooshop | 313 888 7108 |
+| 5 | CAPA | 315 267 2829 |
+| 6 | Murdock | 301 757 3610 |
+| 7 | Carisma | 313 390 5782 |
+| 8 | Focuz | 311 849 0945 |
+| 9 | ToolStore | 323 478 8088 |
+| 10 | Ferreyepes | 312 438 1518 |
+| 11 | SportFitness | 314 637 0443 |
+
+### H2. Toque 2 (los que no respondieron)
+> ¡Hola [nombre]! Le escribí hace unos días sobre el asistente IA para WhatsApp de JeanCRG. ¿Sigue interesado en ver una demo de 5 minutos?
+
+- Chapi · LD_STOROS · STOP24 (si no respondieron al toque 2, no insistir; STOP24 espera la demo grabada)
+- **Don Pedro** → usa el número corregido **301 524 4793** (¡el 317 2419273 era de MOBO!)
+- **Ferretería Al Día (Ronald)** → "¡Hola Ronald! Le escribía por lo del asistente para WhatsApp. ¿Cuántos pedidos recibe al día por ese medio? Le tengo una propuesta con diagnóstico gratis."
+
+### H3. Regla de oro
+Cuando respondan → respóndeles TÚ una vez para abrir la ventana 24h → de ahí en adelante el **bot los atiende solo** (y te alerta si necesitan humano). Con el panel nuevo, puedes responder desde el navegador sin tocar el celular.
+
+---
+
+## ✅ CHECKLIST FINAL
+- [ ] Paso 1: cuenta Railway nueva
+- [ ] Paso 2: servicio n8n (template o imagen `n8nio/n8n:2.34.5`, puerto 5678)
+- [ ] Paso 3: 13 variables de entorno exactas
+- [ ] Paso 4: dominio generado + anotado
+- [ ] Paso 5: cuenta admin n8n creada
+- [ ] Paso 6: credenciales `Supabase account` + `WhatsApp account` (token permanente) — Test OK
+- [ ] Paso 7: 6 workflows importados y ACTIVOS
+- [ ] Paso 8E1: curl de panel OK
+- [ ] Paso 8E2: webhook Meta verificado ("Webhook successfully verified")
+- [ ] Paso 8E3: E2E (Hola → bot → panel → responder → Telegram)
+- [ ] Paso 9: .env actualizado
+- [ ] Paso G1: SQL `prospectos` ejecutado
+- [ ] Paso H: prospectos contactados
+
+---
+
+## 🛠️ SOLUCIÓN DE PROBLEMAS
+
+| Problema | Causa | Solución |
+|---|---|---|
+| Meta: "Webhook verification failed" | Workflow `/webhook/whatsapp` inactivo o URL mal | Activa el workflow del bot; verifica URL exacta `…/webhook/whatsapp`; verify token `jeancrg2026` |
+| Bot no responde aunque Meta verifica | Callback OK pero campo `messages` sin Subscribe | Configuration → Webhook fields → Subscribe messages |
+| El panel dice "Sin acceso" | Secret mal en la URL | `?secret=jeancrg2026panel` |
+| Credencial WhatsApp falla Test | Token temporal expirado | Pega el token PERMANENTE del System User |
+| Nodo Supabase falla | Password ≠ Service Role Key | La credencial usa SUPABASE_SERVICE_KEY como password |
+| Error 131047 en envíos | Ventana 24h cerrada (simulación/lead viejo) | El contacto debe escribirte primero; es normal en pruebas |
+| Workflow importado no guarda credenciales | Se importó sin credencial creada antes | Crea las 2 credenciales PRIMERO (Paso C) y re-importa |
+| ¿Subir versión de n8n? | — | Quédate en 2.34.5 (idéntica a la que generó los JSON). Actualiza después si todo funciona |
+
+---
+
+## APÉNDICE A — DÓNDE ESTÁ CADA COSA (referencia rápida)
+- **Meta app**: developers.facebook.com/apps/2474899282989774 · verify `jeancrg2026` · secret `72c2a7dbb9a37b213ed916342b0b226d`
+- **WABA NativaSoft**: `1938299874223709` · número `573118931609` · phone ID `1309447485585504`
+- **WABA test**: `1389146220090009` · phone ID test `1277072472156993`
+- **Supabase**: `jipzgsspwnntbnzjniwu` · tenant `d2f0d3a0-0000-4000-8000-000000000001`
+- **Panel**: `…/webhook/panel-chat?secret=jeancrg2026panel`
+- **Telegram**: token `8807842110:…` · chat `7309831214`
+
+## APÉNDICE B — MIGRAR A POSTGRES MÁS TARDE (opcional)
+1. Railway → **New → Database → PostgreSQL** (usa la instancia del trial si alcanza).
+2. Copia la connection string interna (Internal URL).
+3. En el servicio n8n agrega variables:
+   ```
+   DB_TYPE=postgresdb
+   DB_POSTGRESDB_HOST=<host interno>
+   DB_POSTGRESDB_PORT=5432
+   DB_POSTGRESDB_DATABASE=railway
+   DB_POSTGRESDB_USER=<user>
+   DB_POSTGRESDB_PASSWORD=<password>
+   ```
+4. Redeploy. (Los workflows viven en el repo, así que no pierdes nada.)
