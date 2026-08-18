@@ -110,6 +110,43 @@ TELEGRAM_BOT_TOKEN=8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E
 
 ---
 
+## PARTE B-2 — BASE DE DATOS INTERNA PERSISTENTE (PostgreSQL en Railway) ← OBLIGATORIA
+
+> **Por qué es OBLIGATORIA**: n8n guarda su base interna (workflows, credenciales, tu cuenta
+> admin) en SQLite dentro del disco EFÍMERO del contenedor. Railway BORRA ese disco en cada
+> reinicio (cambio de variables, redeploy, inactividad) → pierdes la cuenta y te "saca" del
+> login. La solución es mover esa base interna a PostgreSQL de Railway: persiste siempre.
+
+### Paso B2.1 — Crear el servicio PostgreSQL
+1. En Railway, **mismo proyecto** donde está n8n → **New → Database → Add PostgreSQL** (o botón **+ → Database**).
+2. **Region**: elige la MISMA del servicio n8n (ej. us-east-1) para usar la red interna.
+3. Espera a que el servicio quede **verde** (1–2 min).
+
+### Paso B2.2 — Copiar la cadena de conexión INTERNA
+1. Clic en el servicio PostgreSQL → **Variables**.
+2. Copia el valor de **`DATABASE_URL`** que diga **`.railway.internal`** (¡NO la pública `.up.railway.app`!).
+   Formato: `postgresql://postgres:PASSWORD@HOST:5432/railway`
+
+### Paso B2.3 — Conectar n8n a esa base (variables en el servicio n8n)
+En el servicio **n8n** → **Variables** → agrega (con los valores sacados de la URL interna):
+
+```bash
+DB_TYPE=postgresdb
+DB_POSTGRESDB_HOST=<host del DATABASE_URL interno, ej. xxxx.railway.internal>
+DB_POSTGRESDB_PORT=5432
+DB_POSTGRESDB_DATABASE=railway
+DB_POSTGRESDB_USER=postgres
+DB_POSTGRESDB_PASSWORD=<password de la URL interna>
+```
+
+5. Railway **reinicia n8n automáticamente** al guardar (1–2 min). A partir de aquí **nada se pierde al recargar o reiniciar** ✅.
+6. Verifica: vuelve a cargar la URL → **n8n te pide crear la cuenta admin** (porque la base nueva está vacía) → créala UNA vez → recarga varias veces → **ya no te saca**.
+7. Con la cuenta admin creada y persistente → sigue con PARTE C (credenciales) → D (importar) → E (probar y re-apuntar Meta).
+
+> 💡 Alternativa (solo si NO quieres Postgres): adjuntar un **Volume** al servicio n8n
+> montado en `/home/node/.n8n` (Settings → Volumes). En el trial de Railway los volúmenes
+> pueden no estar disponibles; PostgreSQL es la vía recomendada y estándar.
+
 ## PARTE C — CREDENCIALES EN N8N (5 min)
 
 **Antes de importar workflows** (n8n conecta las credenciales **por nombre**):
@@ -276,6 +313,7 @@ Cuando respondan → respóndeles TÚ una vez para abrir la ventana 24h → de a
 ## ✅ CHECKLIST FINAL
 - [ ] Paso 1: cuenta Railway nueva
 - [ ] Paso 2: servicio n8n (template o imagen `n8nio/n8n:2.34.5`, puerto 5678)
+- [ ] Paso B2: PostgreSQL en Railway + n8n conectado (DB_TYPE=postgresdb) — **sin esto te saca del login**
 - [ ] Paso 3: 13 variables de entorno exactas
 - [ ] Paso 4: dominio generado + anotado
 - [ ] Paso 5: cuenta admin n8n creada
