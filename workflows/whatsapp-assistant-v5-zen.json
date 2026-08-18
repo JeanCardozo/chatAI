@@ -196,7 +196,13 @@
       "position": [
         960,
         80
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
@@ -230,7 +236,13 @@
       "position": [
         960,
         320
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
@@ -323,12 +335,18 @@
       "position": [
         1920,
         208
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "R3PLjsR3f3UEEp4r",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1277072472156993",
+        "phoneNumberId": "=1309447485585504",
         "recipientPhoneNumber": "={{ $('Normalizar Mensaje').item.json.contact_phone }}",
         "textBody": "={{ $('Extraer Respuesta').item.json.clean }}",
         "additionalFields": {}
@@ -340,7 +358,13 @@
       "position": [
         2160,
         320
-      ]
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "6VGfb6G3U13AcaS5",
+          "name": "WhatsApp account"
+        }
+      }
     },
     {
       "parameters": {
