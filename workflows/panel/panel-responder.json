@@ -8,13 +8,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "r1",
+      "id": "41f81fb9-dc75-46e4-a590-d88fe4758954",
       "name": "Webhook Responder",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        300
+        0
       ],
       "webhookId": "46062e7b-1ff1-4cc0-8151-1e886a30c339"
     },
@@ -22,13 +22,13 @@
       "parameters": {
         "jsCode": "const b = $json.body || {};\nif (b.secret !== 'jeancrg2026panel' || !b.contacto_id || !b.texto) return [{ json: { error: 'bad' } }];\nreturn [{ json: { ok: true, contacto_id: b.contacto_id, texto: b.texto } }];"
       },
-      "id": "r2",
+      "id": "6a29ae44-5f06-498b-a795-5d80fbfd16c5",
       "name": "Validar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
-        300
+        224,
+        0
       ]
     },
     {
@@ -39,17 +39,17 @@
           "select": "*"
         }
       },
-      "id": "r0",
+      "id": "3080cf06-49d6-404b-8dc7-4daa35075b86",
       "name": "Traer Contacto",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
       "position": [
-        440,
-        300
+        448,
+        0
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -58,40 +58,36 @@
       "parameters": {
         "jsCode": "const cid = $('Validar').item.json.contacto_id;\nconst c = $('Traer Contacto').all().flatMap(i => i.json).flat(1).find(x => x && x.id === cid);\nif (!c || !c.telefono) return [{ json: { error: 'no-contact', contacto_id: cid } }];\nreturn [{ json: { telefono: c.telefono, texto: $('Validar').item.json.texto, contacto_id: cid } }];"
       },
-      "id": "r5",
+      "id": "5a3e8c89-8d47-47ae-8dad-71aee822c076",
       "name": "Buscar Telefono",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        680,
-        300
+        688,
+        0
       ]
     },
     {
       "parameters": {
-        "resource": "message",
         "operation": "sendMessage",
         "phoneNumberId": "1309447485585504",
-        "recipientPhoneNumber": "={{ $json.telefono }}",
-        "text": "={{ $json.texto }}",
-        "replyMarkup": "none",
-        "additionalFields": {}
+        "recipientPhoneNumber": "={{ $json.telefono }}"
       },
-      "id": "r3",
+      "id": "5d2cfa5c-df19-4444-abd2-d1c249a9e7a8",
       "name": "Enviar WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
       "position": [
-        920,
-        300
+        928,
+        0
       ],
+      "webhookId": "7299994c-2e2d-431f-afe4-8de39d7f6d23",
       "credentials": {
         "whatsAppApi": {
-          "id": "6VGfb6G3U13AcaS5",
+          "id": "5n7mIzs47IYKmPOM",
           "name": "WhatsApp account"
         }
-      },
-      "webhookId": "7299994c-2e2d-431f-afe4-8de39d7f6d23"
+      }
     },
     {
       "parameters": {
@@ -123,17 +119,17 @@
           ]
         }
       },
-      "id": "r4",
+      "id": "61b216bb-5308-4be2-aedd-e736be6d44be",
       "name": "Guardar Respuesta Humana",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
       "position": [
-        1160,
-        300
+        1168,
+        0
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -141,15 +137,16 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { ok: true } }}"
+        "responseBody": "={{ { ok: true } }}",
+        "options": {}
       },
-      "id": "r6",
+      "id": "fb5ffe6d-2bb3-4de4-899c-bef6f5ad829f",
       "name": "Responder OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.2,
       "position": [
-        1400,
-        300
+        1408,
+        0
       ]
     }
   ],
@@ -222,6 +219,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   }
 }

@@ -3,18 +3,17 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "GET",
         "path": "panel-chats",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "l1",
+      "id": "fca7c54d-76e5-4d2e-a015-07d33c0127de",
       "name": "Webhook Listar",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        300
+        0
       ],
       "webhookId": "2cc7ee26-3cc6-4a83-b047-1eab6b2f0e7a"
     },
@@ -26,17 +25,17 @@
           "limit": 300
         }
       },
-      "id": "l2",
+      "id": "faeb1349-5d89-43d4-b885-b3a834c8155b",
       "name": "Traer Conversaciones",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
       "position": [
-        220,
-        300
+        224,
+        0
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -45,27 +44,28 @@
       "parameters": {
         "jsCode": "const sec = (($('Webhook Listar').item.json.query || {}).secret);\nif (sec !== 'jeancrg2026panel') return [{ json: { error: 'no-auth' } }];\nconst rows = $('Traer Conversaciones').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object');\nconst contactos = $('Traer Contactos').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object');\nconst cmap = {}; for (const c of contactos) cmap[c.id] = c;\nconst siete = Date.now() - 7*24*3600*1000;\nconst map = {};\nfor (const c of rows) {\n  const t = new Date(c.created_at).getTime();\n  if (isNaN(t) || t < siete) continue;\n  const k = c.contacto_id;\n  if (!map[k]) map[k] = { contacto_id: k, telefono: (cmap[k] && cmap[k].telefono) || '', nombre: (cmap[k] && cmap[k].nombre) || '', mensajes: 0, ultimo: '' };\n  map[k].mensajes++;\n  if (!map[k].ultimo || c.created_at > map[k].ultimo) map[k].ultimo = c.created_at;\n}\nconst chats = Object.values(map).map(c => ({ ...c, ultimo: (c.ultimo || '').slice(0, 16) }));\nreturn [{ json: { chats } }];"
       },
-      "id": "l3",
+      "id": "2ef9223f-9ecd-4689-ac4b-c9cd2857751a",
       "name": "Agrupar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        460,
-        300
+        464,
+        0
       ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json }}"
+        "responseBody": "={{ $json }}",
+        "options": {}
       },
-      "id": "l4",
+      "id": "6c87f1a7-2428-4000-865e-0e066c9888ca",
       "name": "Responder JSON",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.2,
       "position": [
-        700,
-        300
+        704,
+        0
       ]
     },
     {
@@ -76,17 +76,17 @@
           "limit": 300
         }
       },
-      "id": "lc",
+      "id": "4f9aa4e3-8acf-43d2-b673-00eaf8d39c2b",
       "name": "Traer Contactos",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
       "position": [
-        660,
-        300
+        672,
+        0
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -139,6 +139,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   }
 }

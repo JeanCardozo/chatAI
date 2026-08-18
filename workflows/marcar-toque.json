@@ -1,0 +1,187 @@
+{
+  "name": "Marcar Toque Prospecto",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "marcar-toque",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "m1",
+      "name": "Webhook Marcar",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "fd91a62e-05cd-4e52-8f44-73543d8a1899"
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = ($('Webhook Marcar').item.json.query || {});\nif (q.secret !== 'jeancrg2026panel' || !q.telefono) throw new Error('Acceso denegado: falta secret o telefono');\nreturn [{ json: { telefono: String(q.telefono).replace(/\\D/g, '') } }];"
+      },
+      "id": "m2",
+      "name": "Verificar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "prospectos",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telefono",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook Marcar').item.json.query.telefono }}"
+            }
+          ]
+        }
+      },
+      "id": "m3",
+      "name": "Traer Prospecto",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "9WDn3w4fFqTJIN7w",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('Traer Prospecto').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object');\nif (!rows.length) return [{ json: { ok: false, error: 'no-encontrado' } }];\nconst p = rows[0];\nreturn [{ json: { ok: true, id: p.id, toque: (p.toque || 0) + 1 } }];"
+      },
+      "id": "m4",
+      "name": "Nuevo Toque",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/prospectos?id=eq.' + $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { toque: $json.toque, fecha_ultimo_toque: new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "m5",
+      "name": "Actualizar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: $('Nuevo Toque').item.json.ok, toque: $('Nuevo Toque').item.json.toque, id: $('Nuevo Toque').item.json.id } }}"
+      },
+      "id": "m6",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Marcar": {
+      "main": [
+        [
+          {
+            "node": "Verificar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar": {
+      "main": [
+        [
+          {
+            "node": "Traer Prospecto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traer Prospecto": {
+      "main": [
+        [
+          {
+            "node": "Nuevo Toque",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nuevo Toque": {
+      "main": [
+        [
+          {
+            "node": "Actualizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

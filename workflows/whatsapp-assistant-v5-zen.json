@@ -11,7 +11,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "n1",
+      "id": "3933499b-611b-4ae6-aa7d-492daae3aafd",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -34,7 +34,7 @@
         ],
         "options": {}
       },
-      "id": "n2",
+      "id": "ce11aee4-1d4d-4af8-8718-ab345f6c3d20",
       "name": "IF Verificación",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -49,7 +49,7 @@
         "responseBody": "={{ $json.query['hub.challenge'] }}",
         "options": {}
       },
-      "id": "n3",
+      "id": "eaa96758-c098-4057-9bac-647efbd4244e",
       "name": "Responder Challenge",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -62,7 +62,7 @@
       "parameters": {
         "jsCode": "const mode = String($env.WEBHOOK_VERIFY_SIGNATURE || 'false').toLowerCase();\nconst passthrough = (verified, m) => [{ json: Object.assign({ verified, mode: m }, $input.first().json) }];\nif (mode === 'false') { return passthrough(true, 'disabled'); }\nconst secret = $env.META_APP_SECRET || '';\nconst headers = $input.first().json.headers || {};\nconst signature = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'] || '';\nconst rawBody = JSON.stringify($input.first().json.body);\nif (!secret) { return passthrough(false, 'missing_secret'); }\nconst run = async () => { try { const encoder = new TextEncoder(); const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']); const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody)); const hex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join(''); return passthrough(signature === 'sha256=' + hex, 'enabled'); } catch (e) { return passthrough(false, 'crypto_unavailable'); } };\nreturn run();"
       },
-      "id": "n4",
+      "id": "9fe92ab8-35f4-452c-ad12-e474ba45fcb8",
       "name": "Verificar Firma Meta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -83,7 +83,7 @@
         ],
         "options": {}
       },
-      "id": "n5",
+      "id": "f3a760a5-e0e6-4f51-bc69-c0e41a6f48c4",
       "name": "IF Firma OK",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -98,7 +98,7 @@
         "responseBody": "unauthorized",
         "options": {}
       },
-      "id": "n6",
+      "id": "9fdfa79e-84ff-49ba-8930-96be53e19559",
       "name": "Responder Rechazo",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -111,7 +111,7 @@
       "parameters": {
         "jsCode": "// Normaliza el payload; los eventos no-mensaje (status, tipos raros, propio negocio) terminan en silencio (return []).\nconst payload = $input.first().json;\nconst businessPhone = ($env.WHATSAPP_BUSINESS_PHONE || '').replace(/\\D/g, '');\nfor (const entry of payload.body.entry || payload.entry || []) {\n  for (const change of entry.changes || []) {\n    const value = change.value || {};\n    if (value.messages && value.messages.length > 0) {\n      const msg = value.messages[0];\n      const from = String(msg.from || '').replace(/\\D/g, '');\n      if (businessPhone && from === businessPhone) { return []; }\n      const hasText = msg.text && msg.text.body;\n      if (msg.type && msg.type !== 'text' && !hasText) {\n      const label = { image: '🖼️ [El cliente envio una imagen]', audio: '🎤 [El cliente envio un audio]', video: '🎬 [El cliente envio un video]', document: '📄 [El cliente envio un documento]' }[msg.type] || '📎 [El cliente envio un adjunto]';\n      return [{ json: { valid: true, contact_phone: from, message_text: label, message_id: msg.id || '', timestamp: msg.timestamp || '', type: msg.type || 'media' } }];\n    }\n      if (!hasText) { return []; }\n      return [{ json: { valid: true, contact_phone: from, message_text: String(msg.text.body).slice(0, 2000), message_id: msg.id || '', timestamp: msg.timestamp || '', type: msg.type || 'text' } }];\n    }\n    if (value.statuses && value.statuses.length > 0) { return []; }\n  }\n}\nreturn [];"
       },
-      "id": "n7",
+      "id": "d99227e8-6b2e-43cf-97f1-cc528adda5a8",
       "name": "Normalizar Mensaje",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -144,11 +144,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { telefono: $json.contact_phone, tenant_id: $env.TENANT_ID } }}",
-        "options": {},
-        "specifyHeaders": "keypair",
-        "contentType": "json"
+        "options": {}
       },
-      "id": "n8",
+      "id": "9753a2a0-c8d6-4965-84af-08627624afbb",
       "name": "Upsert Contacto",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -161,7 +159,7 @@
       "parameters": {
         "jsCode": "// Encuentra la fila del contacto en cualquier forma de respuesta (array, body, anidado).\nconst findRow = (x) => {\n  if (Array.isArray(x)) { for (const it of x) { const f = findRow(it); if (f) return f; } return null; }\n  if (x && typeof x === 'object') {\n    if (x.id && (x.telefono || x.tenant_id)) return x;\n    for (const v of Object.values(x)) { const f = findRow(v); if (f) return f; }\n  }\n  return null;\n};\nconst row = findRow($json) || {};\nif (!row.id) { throw new Error('UPSERT-FALLO: ' + JSON.stringify($json).slice(0, 300)); }\nreturn [{ json: { contacto_id: row.id, tenant_id: row.tenant_id || null } }];"
       },
-      "id": "n9",
+      "id": "dfef1f29-2828-4d4a-b342-4b37d5c34c50",
       "name": "Contacto Listo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -174,10 +172,8 @@
       "parameters": {
         "operation": "getAll",
         "tableId": "conversaciones",
-        "returnAll": false,
         "limit": 20,
         "orderBy": "created_at.desc",
-        "filterType": "manual",
         "matchType": "allFilters",
         "filters": {
           "conditions": [
@@ -189,7 +185,7 @@
           ]
         }
       },
-      "id": "n10",
+      "id": "ac01e36f-ca00-4edb-9244-6af39c310c13",
       "name": "Obtener Historial",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -199,7 +195,7 @@
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -207,7 +203,6 @@
     {
       "parameters": {
         "tableId": "conversaciones",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -229,7 +224,7 @@
           ]
         }
       },
-      "id": "n11",
+      "id": "c4b04d27-8664-4882-a705-dcde7a87ed1a",
       "name": "Guardar Mensaje Usuario",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -239,16 +234,16 @@
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "let historyRows = [];\ntry { historyRows = $('Obtener Historial').all().map(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r)); } catch (e) {}\nconst messages = historyRows.slice(-6).map(h => ({ role: h.role === 'assistant' ? 'assistant' : 'user', content: h.content }));\nmessages.push({ role: 'user', content: $('Normalizar Mensaje').item.json.message_text });\nconst systemPrompt = \"Eres el asistente virtual de JeanCRG, consultoria de software e inteligencia artificial en Colombia. Respondes SOLO sobre los servicios de JeanCRG. Estilo: cercano, emojis moderados (👋 🚀 ✅ 📅), formato WhatsApp (*negrita* para precios), espanol neutro, maximo 2-3 frases y SIEMPRE terminas con UNA pregunta (nunca dos).\\nREGLA GLOBAL: saludas y te presentas SOLO en la primera interaccion de la conversacion. En los mensajes siguientes NUNCA repites el saludo ni la presentacion: respondes directo al tema, como un vendedor que ya saludo.\\n\\nSERVICIOS EXACTOS (nunca inventes precios, servicios NI funciones: no menciones pasarelas de pago, cobros, apps ni nada que no este aqui):\\n1) *Asistente IA para WhatsApp* desde *$1.800.000* + retainer mensual de *$250.000* (montaje en 5 dias)\\n2) *Diagnostico tecnologico* por *$300.000* (descontable)\\n3) *Automatizaciones con n8n* desde *$1.500.000*\\n4) *Chatbot con datos propios (RAG)* desde *$2.500.000*\\n5) *Tienda online* desde *$2.500.000*\\n6) *Desarrollo a medida* desde *$3.000.000*\\n*Piloto de 15 dias por $800.000* (100% descontable del servicio final).\\n\\nCASOS ESPECIFICOS (obligatorio):\\n- PRIMERA interaccion (el cliente escribe por primera vez): '¡Hola! 👋 Soy el asistente de JeanCRG. Te ayudo con asistentes IA para WhatsApp, automatizaciones y desarrollo web. ¿Que negocio tienes?'\\n- Conversacion ya iniciada: responde directo y natural al tema, sin saludos ni presentaciones (ejemplo: '¡Claro! El asistente IA para WhatsApp cuesta desde *$1.800.000*... ¿que negocio tienes?')\\n- Quiere agendar/cotizar/propuesta: tu respuesta DEBE ser EXACTAMENTE: '¡Perfecto! 📅 Te comparto el enlace para que elijas el horario que prefieras: https://calendly.com/jeancrg/consulta-gratuita ¿Te queda mejor por la manana o por la tarde?' y agrega [LEAD cita] al final. PROHIBIDO pedir dia u hora, PROHIBIDO confirmar horarios, PROHIBIDO mencionar otros servicios en esa respuesta.\\n- Pide hablar con un humano o esta frustrado/insatisfecho: tu respuesta DEBE ser EXACTAMENTE: 'Entendido 👤 Un asesor te escribe por este chat en unos minutos. ¿Algo mas en lo que pueda ayudarte?' y agrega [DERIVAR] al final. PROHIBIDO pedir correo, numero o datos. PROHIBIDO prometer tiempos exactos.\\n- STOP/BAJA: responde 'Entendido 👋 Dejare de escribirte. Si necesitas algo, aqui estare. ¡Que tengas un excelente dia!' y no insistas.\\n- Pide precio de un servicio: da ese precio con *negrita* y pregunta por su negocio.\\n- El cliente envia imagen/audio/video (mensaje llega como [El cliente envio una imagen]): responde '¡Gracias por enviarlo! 📎 ¿Puedes describirme en palabras qué necesitas?'\\nLas marcas [LEAD ...] y [DERIVAR] son internas: agregalas al final, nunca las expliques.\";\nreturn [{ json: { model: 'mimo-v2.5', thinking: { type: 'disabled' }, messages: [{ role: 'system', content: systemPrompt }].concat(messages), temperature: 0.7 } }];"
+        "jsCode": "let historyRows = [];\ntry { historyRows = $('Obtener Historial').all().map(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r)); } catch (e) {}\nconst messages = historyRows.slice(-6).map(h => ({ role: h.role === 'assistant' ? 'assistant' : 'user', content: h.content }));\nmessages.push({ role: 'user', content: $('Normalizar Mensaje').item.json.message_text });\nconst systemPrompt = `Eres el asistente virtual de JeanCRG, consultoria de software e inteligencia artificial en Colombia. Representas a Jean, un emprendedor colombiano que vende asistentes IA para WhatsApp, automatizaciones y desarrollo web.\n\nPERSONALIDAD Y TONO:\n- Cercano, respetuoso y con energia positiva, como un vendedor colombiano profesional.\n- Emojis con moderacion (👋 😊 🚀 ✅ 📅 💬).\n- Espanol neutro colombiano: \"¿Que negocio tienes?\", \"claro\", \"perfecto\". Usa \"tu\" (nunca \"vos\"), sin jerga extrema ni regionalismos cerrados.\n- Formato WhatsApp: *negrita* para precios y nombres de servicios.\n- Maximo 2-3 frases por mensaje. SIEMPRE termina con UNA pregunta (nunca dos).\n- Nunca uses listas largas: si el cliente pregunta por todos los servicios, menciona los 3 principales y pregunta cual le llama la atencion.\n\nREGLAS DE CONVERSACION:\n1. Saludo: saludas y te presentas SOLO en la primera interaccion de la conversacion. Las siguientes veces respondes directo al tema, como un vendedor que ya saludo.\n2. Si el cliente vuelve a saludar a mitad de conversacion (\"hola\", \"buenas\"), responde amable sin volver a presentarte: \"¡Hola! ¿En que te ayudo?\"\n3. Si te preguntan si eres robot: \"Soy el asistente virtual de JeanCRG 🤖 Respondo al instante y con informacion real del negocio. Si prefieres, te conecto con un asesor humano.\"\n4. Objeciones de precio (\"esta caro\", \"no tengo plata\", \"lo voy a pensar\"): responde con empatia y ofrece el *Piloto de 15 dias por $800.000* (100% descontable) o el *Diagnostico tecnologico por $300.000* (descontable). Ejemplo: \"Te entiendo 😊 Por eso tenemos el piloto de 15 dias por *$800.000*, 100% descontable del servicio final. ¿Te cuento como funciona?\"\n5. Agradecimientos y cierres (\"gracias\", \"listo\", \"quedo claro\"): responde calido y deja la puerta abierta: \"¡Con gusto! 😊 Cuando quieras avanzamos. ¿Te comparto el enlace para agendar tu consulta gratis?\" (solo si hay interes previo).\n6. Preguntas fuera del tema: redirige amablemente a los servicios de JeanCRG.\n7. Errores de tipeo, mensajes sin puntuacion o de voz: responde normal, sin corregir al cliente.\n8. Si preguntan horarios o disponibilidad: sugiere agendar en https://calendly.com/jeancrg/consulta-gratuita con el caso exacto de agendamiento.\n\nSERVICIOS EXACTOS (nunca inventes precios, servicios NI funciones: no menciones pasarelas de pago, cobros, apps ni nada que no este aqui):\n1) *Asistente IA para WhatsApp* desde *$1.800.000* + retainer mensual de *$250.000* (montaje en 5 dias)\n2) *Diagnostico tecnologico* por *$300.000* (descontable)\n3) *Automatizaciones con n8n* desde *$1.500.000*\n4) *Chatbot con datos propios (RAG)* desde *$2.500.000*\n5) *Tienda online* desde *$2.500.000*\n6) *Desarrollo a medida* desde *$3.000.000*\n*Piloto de 15 dias por $800.000* (100% descontable del servicio final).\n\nCASOS ESPECIFICOS (obligatorio, respuestas EXACTAS cuando aplique):\n- PRIMERA interaccion (el cliente escribe por primera vez): '¡Hola! 👋 Soy el asistente de JeanCRG. Te ayudo con asistentes IA para WhatsApp, automatizaciones y desarrollo web. ¿Que negocio tienes?'\n- Conversacion ya iniciada: responde directo y natural al tema, sin saludos ni presentaciones (ejemplo: '¡Claro! El asistente IA para WhatsApp cuesta desde *$1.800.000* y lo dejamos montado en 5 dias. ¿Que negocio tienes?')\n- Quiere agendar/cotizar/propuesta: tu respuesta DEBE ser EXACTAMENTE: '¡Perfecto! 📅 Te comparto el enlace para que elijas el horario que prefieras: https://calendly.com/jeancrg/consulta-gratuita ¿Te queda mejor por la manana o por la tarde?' y agrega [LEAD cita] al final. PROHIBIDO pedir dia u hora, PROHIBIDO confirmar horarios, PROHIBIDO mencionar otros servicios en esa respuesta.\n- Pide hablar con un humano o esta frustrado/insatisfecho: tu respuesta DEBE ser EXACTAMENTE: 'Entendido 👤 Un asesor te escribe por este chat en unos minutos. ¿Me confirmas tu nombre para que te atienda con tu caso?' y agrega [DERIVAR] al final. PROHIBIDO seguir vendiendo o pedir mas datos.`;\nconst messages = historyRows.slice(-6).map(h => ({ role: h.role === 'assistant' ? 'assistant' : 'user', content: h.content }));\nmessages.push({ role: 'user', content: $('Normalizar Mensaje').item.json.message_text });\nconst systemPrompt = \"Eres el asistente virtual de JeanCRG, consultoria de software e inteligencia artificial en Colombia. Respondes SOLO sobre los servicios de JeanCRG. Estilo: cercano, emojis moderados (👋 🚀 ✅ 📅), formato WhatsApp (*negrita* para precios), espanol neutro, maximo 2-3 frases y SIEMPRE terminas con UNA pregunta (nunca dos).\\nREGLA GLOBAL: saludas y te presentas SOLO en la primera interaccion de la conversacion. En los mensajes siguientes NUNCA repites el saludo ni la presentacion: respondes directo al tema, como un vendedor que ya saludo.\\n\\nSERVICIOS EXACTOS (nunca inventes precios, servicios NI funciones: no menciones pasarelas de pago, cobros, apps ni nada que no este aqui):\\n1) *Asistente IA para WhatsApp* desde *$1.800.000* + retainer mensual de *$250.000* (montaje en 5 dias)\\n2) *Diagnostico tecnologico* por *$300.000* (descontable)\\n3) *Automatizaciones con n8n* desde *$1.500.000*\\n4) *Chatbot con datos propios (RAG)* desde *$2.500.000*\\n5) *Tienda online* desde *$2.500.000*\\n6) *Desarrollo a medida* desde *$3.000.000*\\n*Piloto de 15 dias por $800.000* (100% descontable del servicio final).\\n\\nCASOS ESPECIFICOS (obligatorio):\\n- PRIMERA interaccion (el cliente escribe por primera vez): '¡Hola! 👋 Soy el asistente de JeanCRG. Te ayudo con asistentes IA para WhatsApp, automatizaciones y desarrollo web. ¿Que negocio tienes?'\\n- Conversacion ya iniciada: responde directo y natural al tema, sin saludos ni presentaciones (ejemplo: '¡Claro! El asistente IA para WhatsApp cuesta desde *$1.800.000*... ¿que negocio tienes?')\\n- Quiere agendar/cotizar/propuesta: tu respuesta DEBE ser EXACTAMENTE: '¡Perfecto! 📅 Te comparto el enlace para que elijas el horario que prefieras: https://calendly.com/jeancrg/consulta-gratuita ¿Te queda mejor por la manana o por la tarde?' y agrega [LEAD cita] al final. PROHIBIDO pedir dia u hora, PROHIBIDO confirmar horarios, PROHIBIDO mencionar otros servicios en esa respuesta.\\n- Pide hablar con un humano o esta frustrado/insatisfecho: tu respuesta DEBE ser EXACTAMENTE: 'Entendido 👤 Un asesor te escribe por este chat en unos minutos. ¿Algo mas en lo que pueda ayudarte?' y agrega [DERIVAR] al final. PROHIBIDO pedir correo, numero o datos. PROHIBIDO prometer tiempos exactos.\\n- STOP/BAJA: responde 'Entendido 👋 Dejare de escribirte. Si necesitas algo, aqui estare. ¡Que tengas un excelente dia!' y no insistas.\\n- Pide precio de un servicio: da ese precio con *negrita* y pregunta por su negocio.\\n- El cliente envia imagen/audio/video (mensaje llega como [El cliente envio una imagen]): responde '¡Gracias por enviarlo! 📎 ¿Puedes describirme en palabras qué necesitas?'\\nLas marcas [LEAD ...] y [DERIVAR] son internas: agregalas al final, nunca las expliques.\";\nreturn [{ json: { model: 'mimo-v2.5', thinking: { type: 'disabled' }, messages: [{ role: 'system', content: systemPrompt }].concat(messages), temperature: 0.7 } }];"
       },
-      "id": "n12",
+      "id": "ad0d4b40-506e-4acc-91d3-f6e7b537e6f4",
       "name": "Preparar Contexto Gemini",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -262,7 +257,6 @@
         "method": "POST",
         "url": "https://opencode.ai/zen/go/v1/chat/completions",
         "sendHeaders": true,
-        "specifyHeaders": "keypair",
         "headerParameters": {
           "parameters": [
             {
@@ -273,11 +267,10 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "contentType": "json",
         "jsonBody": "={{ $json }}",
         "options": {}
       },
-      "id": "n13",
+      "id": "fdbefd43-2f6c-4172-a53d-df620a12e21b",
       "name": "Gemini Responder",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -292,9 +285,9 @@
     },
     {
       "parameters": {
-        "jsCode": "const text = (($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || '');\nconst clean = text.replace(/\\[DERIVAR\\]/gi, '').replace(/\\[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nconst userText = ($('Normalizar Mensaje').item.json.message_text || '').toLowerCase();\nconst HUMAN_RE = /(hablar con (alguien|un humano|una persona|un asesor|alguien real)|asesor humano|persona real|no me convence|no me gusta|queja|quejarme|molest|frustrad|insatisfech|ineficiente|mal servicio|estafa|llamar|llamada|representante|me canse|aburrid)/i;\nconst LEAD_RE = /(agendar|cita|reuni[oó]n|diagn[oó]stic|cotiz|propuest|presupuest|quiero (comprar|contratar|empezar)|me interesa)/i;\nconst PEDIDO_RE = /(pedido|quiero (pedir|ordenar|encargar|reservar)|me llevo|hacer (un|mi) pedido|domicilio|delivery|a domicilio|talla|disponibilidad)/i;\nconst PAGO_RE = /(pagar|pago|transferenc|nequi|daviplata|davi|tarjeta|bono|cup[oó]n|promoci[oó]n|adelanto|consignaci[oó]n)/i;\nconst marker = (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1];\nlet evento = 'none';\nif (/\\[DERIVAR\\]/i.test(text) || HUMAN_RE.test(userText)) evento = 'derivar';\nelse if (marker || LEAD_RE.test(userText)) evento = 'lead';\nelse if (PAGO_RE.test(userText)) evento = 'pago';\nelse if (PEDIDO_RE.test(userText)) evento = 'pedido';\nreturn [{ json: { raw: text, clean, needs_human: evento === 'derivar', lead_marker: marker || (LEAD_RE.test(userText) ? 'cita' : ''), evento } }];"
+        "jsCode": "const text = (($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || '');\nconst clean = text.replace(/[DERIVAR]/gi, '').replace(/[LEAD[^\\]]*\\]/gi, '').trim().slice(0, 4000);\nconst userText = ($('Normalizar Mensaje').item.json.message_text || '').toLowerCase();\nconst HUMAN_RE = /(hablar con (alguien|un humano|una persona|un asesor|alguien real)|asesor humano|persona real|no me convence|no me gusta|queja|quejarme|molest|frustrad|insatisfech|ineficiente|mal servicio|estafa|llamar|llamada|representante|me canse|aburrid|quien me atiende|hay alguien|atendeme|quiero a alguien)/i;\nconst LEAD_RE = /(agendar|cita|reuni[oó]n|diagn[oó]stic|cotiz|propuest|presupuest|quiero (comprar|contratar|empezar)|me interesa|cu[áa]nto cuesta|cu[áa]nto vale|precio|precios|valor|tarifa|demo|prueba|pruebo|piloto|m[áa]s informaci[oó]n|me cuentas|c[oó]mo funciona|en cu[áa]nto|ayudame con)/i;\nconst OBJ_RE = /(caro|carita|cara|costoso|no me alcanza|no tengo plata|lo pienso|lo voy a pensar|demasiado|no me sobra|presupuesto apretado|ya tengo otro|lo consulto)/i;\nconst PEDIDO_RE = /(pedido|quiero (pedir|ordenar|encargar|reservar)|me llevo|hacer (un|mi) pedido|domicilio|delivery|a domicilio|talla|disponibilidad)/i;\nconst PAGO_RE = /(pagar|pago|transferenc|nequi|daviplata|davi|tarjeta|bono|cup[oó]n|promoci[oó]n|adelanto|consignaci[oó]n)/i;\nconst marker = (text.match(/\\[LEAD ([^\\]]*)\\]/i) || [null, ''])[1];\nlet evento = 'none';\nif (/\\[DERIVAR\\]/i.test(text) || HUMAN_RE.test(userText)) evento = 'derivar';\nelse if (marker || LEAD_RE.test(userText)) evento = 'lead';\nelse if (OBJ_RE.test(userText)) evento = 'objecion';\nelse if (PAGO_RE.test(userText)) evento = 'pago';\nelse if (PEDIDO_RE.test(userText)) evento = 'pedido';\nreturn [{ json: { raw: text, clean, needs_human: evento === 'derivar', lead_marker: marker || (LEAD_RE.test(userText) ? 'cita' : ''), evento } }];"
       },
-      "id": "n14",
+      "id": "e67b628a-231b-4c05-9329-baa70a4a5f05",
       "name": "Extraer Respuesta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -306,7 +299,6 @@
     {
       "parameters": {
         "tableId": "conversaciones",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -328,7 +320,7 @@
           ]
         }
       },
-      "id": "n15",
+      "id": "e7dfceeb-ade9-45f1-84ad-3d4f60a5332b",
       "name": "Guardar Respuesta IA",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -338,7 +330,7 @@
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -351,7 +343,7 @@
         "textBody": "={{ $('Extraer Respuesta').item.json.clean }}",
         "additionalFields": {}
       },
-      "id": "n17",
+      "id": "9a37085a-a6d1-417e-bf92-de713459c79d",
       "name": "Enviar WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
@@ -359,9 +351,10 @@
         2160,
         320
       ],
+      "webhookId": "9fea4483-d659-4251-b104-dd686b979aba",
       "credentials": {
         "whatsAppApi": {
-          "id": "6VGfb6G3U13AcaS5",
+          "id": "5n7mIzs47IYKmPOM",
           "name": "WhatsApp account"
         }
       }
@@ -370,13 +363,13 @@
       "parameters": {
         "jsCode": "// Emite es_lead + datos; sin throw (el insert se hace no-op con body [] cuando no hay lead).\nconst lead = $('Extraer Respuesta').item.json.lead_marker || '';\nconst parts = lead ? String(lead).split('|') : [];\nreturn [{ json: {\n  es_lead: Boolean(lead),\n  nombre: (parts[0] || '').trim(),\n  telefono: $('Normalizar Mensaje').item.json.contact_phone,\n  interes: (parts[2] || parts[0] || '').trim()\n} }];"
       },
-      "id": "n18",
+      "id": "6b848995-1e2a-4b32-ba52-7dce59512f0e",
       "name": "Preparar Lead",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2160,
-        120
+        128
       ]
     },
     {
@@ -399,45 +392,24 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.es_lead ? [{ tenant_id: $('Contacto Listo').item.json.tenant_id, contacto_id: $('Contacto Listo').item.json.contacto_id, nombre: $json.nombre, telefono: $json.telefono, interes: $json.interes, estado: 'nuevo', source: 'whatsapp' }] : [] }}",
-        "options": {},
-        "jsCode": {
-          "method": "POST",
-          "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads' }}",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "apikey",
-                "value": "={{ $env.SUPABASE_SERVICE_KEY }}"
-              },
-              {
-                "name": "Authorization",
-                "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_KEY }}"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ $json.es_lead ? [{ tenant_id: $('Contacto Listo').item.json.tenant_id, contacto_id: $('Contacto Listo').item.json.contacto_id, nombre: $json.nombre, telefono: $json.telefono, interes: $json.interes, estado: 'nuevo', source: 'whatsapp' }] : [] }}",
-          "options": {}
-        }
+        "options": {}
       },
-      "id": "n19b",
+      "id": "72d7995f-e24e-440d-ba87-1ef89cfa9b90",
       "name": "Guardar Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         2400,
-        120
+        128
       ],
       "onError": "continueRegularOutput",
       "notes": "Si el lead ya existe (409), se omite silenciosamente y el flujo continua."
     },
     {
       "parameters": {
-        "jsCode": "const extra = $('Extraer Respuesta').item.json;\nconst phone = $('Normalizar Mensaje').item.json.contact_phone;\nconst evento = extra.evento || 'none';\nconst emojis = { derivar: '🚨 DERIVAR', lead: '📅 LEAD', pedido: '🛒 PEDIDO', pago: '💰 PAGO' };\nconst notificar = evento !== 'none';\nconst texto = notificar ? (emojis[evento] + ': ' + phone + ' | ' + extra.clean) : '';\nreturn [{ json: { notificar, texto } }];"
+        "jsCode": "const extra = $('Extraer Respuesta').item.json;\nconst phone = $('Normalizar Mensaje').item.json.contact_phone;\nconst evento = extra.evento || 'none';\nconst emojis = { derivar: '🚨 DERIVAR', lead: '📅 LEAD', objecion: '⚡ OBJECIÓN', pedido: '🛒 PEDIDO', pago: '💰 PAGO' };\nconst notificar = evento !== 'none';\nconst texto = notificar ? (emojis[evento] + ': ' + phone + ' | ' + extra.clean) : '';\nreturn [{ json: { notificar, texto } }];"
       },
-      "id": "n20",
+      "id": "44e91366-7fd5-4456-b13f-6aa8eeabe626",
       "name": "Preparar Notificacion",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -452,11 +424,10 @@
         "url": "={{ 'https://api.telegram.org/bot8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "contentType": "json",
         "jsonBody": "={{ $json.notificar ? { chat_id: 7309831214, text: $json.texto } : {} }}",
         "options": {}
       },
-      "id": "n21",
+      "id": "1607aabe-af32-4226-bf19-d21b874d20e7",
       "name": "Enviar Notificacion",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,

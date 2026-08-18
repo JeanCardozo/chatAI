@@ -3,18 +3,17 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "GET",
         "path": "panel-mensajes",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "m1",
+      "id": "fec2e74d-53e4-41db-a1d3-917c752d3f90",
       "name": "Webhook Mensajes",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        300
+        0
       ],
       "webhookId": "d1bd5540-1ab7-4a74-884c-8c965723f343"
     },
@@ -26,17 +25,17 @@
           "limit": 500
         }
       },
-      "id": "m2",
+      "id": "61774111-ab34-4fc9-8567-3029e66f8e54",
       "name": "Traer Conversaciones",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 2,
       "position": [
-        220,
-        300
+        224,
+        0
       ],
       "credentials": {
         "supabaseApi": {
-          "id": "R3PLjsR3f3UEEp4r",
+          "id": "9WDn3w4fFqTJIN7w",
           "name": "Supabase account"
         }
       }
@@ -45,27 +44,28 @@
       "parameters": {
         "jsCode": "const q = ($('Webhook Mensajes').item.json.query || {});\nif (q.secret !== 'jeancrg2026panel') return [{ json: { error: 'no-auth' } }];\nconst cid = q.contacto;\nconst rows = $('Traer Conversaciones').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object' && x.contacto_id === cid);\nrows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));\nconst mensajes = rows.map(m => ({ role: m.role, content: m.content, derivado_a_humano: !!m.derivado_a_humano, fecha: (m.created_at || '').slice(0, 16) }));\nreturn [{ json: { mensajes } }];"
       },
-      "id": "m3",
+      "id": "465cf1d2-c009-4329-8402-fa6f1a4ab802",
       "name": "Filtrar y Ordenar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
-        300
+        448,
+        0
       ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json }}"
+        "responseBody": "={{ $json }}",
+        "options": {}
       },
-      "id": "m4",
+      "id": "8f4127b3-6c78-4662-bff8-9bf6642b5262",
       "name": "Responder JSON",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.2,
       "position": [
-        660,
-        300
+        672,
+        0
       ]
     }
   ],
@@ -105,6 +105,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   }
 }

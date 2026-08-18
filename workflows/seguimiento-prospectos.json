@@ -1,0 +1,119 @@
+{
+  "name": "Seguimiento Prospectos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ],
+          "triggerAtHour": 9,
+          "triggerAtMinute": 0
+        }
+      },
+      "id": "s1",
+      "name": "Diario 9AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "prospectos",
+        "options": {
+          "limit": 1000
+        }
+      },
+      "id": "s2",
+      "name": "Traer Prospectos",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "9WDn3w4fFqTJIN7w",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('Traer Prospectos').all().flatMap(i => i.json).flat(1).filter(x => x && typeof x === 'object');\nconst DELTAS = [0, 2, 3, 4, 6, 15];\nconst now = Date.now();\nconst MENSAJES = {\n  0: 'Hola {N} 👋 Soy Jean, de JeanCRG. Vi que {B} trabaja por WhatsApp y quiero mostrarle algo: un asistente con IA que responde solo, agenda citas y captura clientes las 24h. ¿Le interesa una demo de 5 minutos? Sin compromiso.',\n  1: 'Hola {N} 👋 Le escribí hace unos días sobre el asistente IA para WhatsApp. ¿Sigue interesado en ver una demo de 5 minutos?',\n  2: 'Hola {N} 😊 Solo quería retomar el tema del asistente IA. Tenemos un piloto de 15 días por $800.000 (100% descontable). ¿Le cuento cómo funciona?',\n  3: 'Hola {N}, ¿qué tal? Le dejo el enlace para agendar una consulta gratis de 30 minutos: https://calendly.com/jeancrg/consulta-gratuita. Sin compromiso.',\n  4: 'Hola {N} 🙌 Último mensaje por ahora. Si en algún momento quiere automatizar su WhatsApp, aquí estamos. ¡Éxitos con {B}!',\n  5: 'Hola {N}, ¿cómo va {B}? Si quiere reactivar el tema del asistente IA, seguimos disponibles. ¡Un abrazo!'\n};\nconst pendientes = [];\nfor (const p of rows) {\n  const toque = p.toque || 0;\n  if (toque >= 5) continue;\n  const ult = p.fecha_ultimo_toque ? new Date(p.fecha_ultimo_toque).getTime() : null;\n  const deltaDias = DELTAS[Math.min(toque, 5)];\n  const due = ult === null || (now - ult) >= deltaDias * 86400000;\n  if (!due) continue;\n  const tel = String(p.telefono || '').replace(/\\D/g, '');\n  const msj = MENSAJES[Math.min(toque, 5)].replace('{N}', p.nombre || 'amigo').replace('{B}', p.negocio || 'su negocio');\n  pendientes.push({ json: {\n    nombre: p.nombre, negocio: p.negocio, telefono: tel, toque: toque + 1,\n    wa: 'https://wa.me/' + tel,\n    marcar: 'https://n8n-production-d5b6.up.railway.app/webhook/marcar-toque?secret=jeancrg2026panel&telefono=' + tel,\n    mensaje: msj\n  } });\n}\nreturn pendientes;"
+      },
+      "id": "s3",
+      "name": "Calcular Pendientes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.telegram.org/bot8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E/sendMessage' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { chat_id: 7309831214, text: '📅 TOQUE ' + $json.toque + ' — ' + $json.nombre + ($json.negocio ? ' (' + $json.negocio + ')' : '') + '\\n📱 ' + $json.telefono + '\\n💬 ' + $json.mensaje + '\\n\\n✅ Tras contactar, marca el toque: ' + $json.marcar, disable_web_page_preview: true } }}",
+        "options": {}
+      },
+      "id": "s4",
+      "name": "Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Diario 9AM": {
+      "main": [
+        [
+          {
+            "node": "Traer Prospectos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traer Prospectos": {
+      "main": [
+        [
+          {
+            "node": "Calcular Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -12,21 +12,19 @@
           ]
         }
       },
-      "id": "r1",
+      "id": "f511775b-144e-43ec-9cb5-1e24b27d67a6",
       "name": "Lunes 8AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
         0,
-        300
+        0
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $env.SUPABASE_URL + '/rest/v1/conversaciones?select=id,role,contacto_id,created_at&created_at=gt.' + encodeURIComponent($now.minus(7, 'days').toISO()) + '&limit=1000' }}",
         "sendHeaders": true,
-        "specifyHeaders": "keypair",
         "headerParameters": {
           "parameters": [
             {
@@ -41,21 +39,19 @@
         },
         "options": {}
       },
-      "id": "r2",
+      "id": "22c98de9-8adc-4095-9af3-a14281abd0ae",
       "name": "Obtener Conversaciones",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        220,
-        300
+        224,
+        0
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads?select=id,created_at&created_at=gt.' + encodeURIComponent($now.minus(7, 'days').toISO()) + '&limit=500' }}",
         "sendHeaders": true,
-        "specifyHeaders": "keypair",
         "headerParameters": {
           "parameters": [
             {
@@ -70,26 +66,26 @@
         },
         "options": {}
       },
-      "id": "r3",
+      "id": "4fca9ab6-15f6-4860-81d8-c271236a4e8b",
       "name": "Obtener Leads",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        460,
-        300
+        464,
+        0
       ]
     },
     {
       "parameters": {
         "jsCode": "const conv = $('Obtener Conversaciones').all().flatMap(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r));\nconst leads = $('Obtener Leads').all().flatMap(i => i.json).flat(1).filter(r => r && typeof r === 'object' && !Array.isArray(r));\nconst usuarios = conv.filter(c => c.role === 'user').length;\nconst asistentes = conv.filter(c => c.role === 'assistant').length;\nconst contactosUnicos = new Set(conv.map(c => c.contacto_id)).size;\nconst texto = '📊 *Reporte Semanal — JeanCRG*\\n\\n💬 Conversaciones (7 dias): ' + conv.length + '\\n👤 Contactos activos: ' + contactosUnicos + '\\n📥 Mensajes de clientes: ' + usuarios + '\\n🤖 Respuestas del bot: ' + asistentes + '\\n🎯 Leads capturados: ' + leads.length + '\\n\\nSemana del ' + $now.minus(7, 'days').toFormat('dd/MM') + ' al ' + $now.toFormat('dd/MM/yyyy');\nreturn [{ json: { texto } }];"
       },
-      "id": "r4",
+      "id": "abbf3766-cebb-4570-b745-b78136dede6c",
       "name": "Armar Reporte",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        700,
-        300
+        704,
+        0
       ]
     },
     {
@@ -98,17 +94,16 @@
         "url": "={{ 'https://api.telegram.org/bot8807842110:AAGgU6QDADaN-Lvt_hqZV_orFIhG0dwrT1E/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "contentType": "json",
         "jsonBody": "={{ { chat_id: 7309831214, text: $json.texto, parse_mode: 'Markdown' } }}",
         "options": {}
       },
-      "id": "r5",
+      "id": "78dae439-1564-4a10-b8c1-399ae9389d46",
       "name": "Enviar Reporte Telegram",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        940,
-        300
+        944,
+        0
       ]
     }
   ],
@@ -159,6 +154,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   }
 }

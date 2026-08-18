@@ -3,18 +3,17 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "GET",
         "path": "panel-chat",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "p1",
+      "id": "9dfd06fd-013f-435e-bab8-f9762cf97300",
       "name": "Webhook Panel",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        300
+        0
       ],
       "webhookId": "a37f7f52-3e1d-4836-88ca-209c5d217cc6"
     },
@@ -33,13 +32,13 @@
           }
         }
       },
-      "id": "p2",
+      "id": "03677760-76fa-41eb-8173-a2528ca43c0a",
       "name": "Enviar HTML",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.2,
       "position": [
-        220,
-        300
+        224,
+        0
       ]
     }
   ],
@@ -57,6 +56,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   }
 }
