@@ -6,12 +6,12 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 24
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
             }
-          ],
-          "triggerAtHour": 9,
-          "triggerAtMinute": 0
+          ]
         }
       },
       "id": "s1",

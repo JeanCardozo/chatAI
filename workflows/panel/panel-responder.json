@@ -135,7 +135,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const err = $json.error;\nif (err) return [{ json: { ok: false, error: 'envio-fallido: ' + (typeof err === 'string' ? err : (err.message || JSON.stringify(err))) } }];\nreturn [{ json: { ok: true } }];"
+        "jsCode": "const err = $json.error;\nif (err) {\n  const s = typeof err === 'string' ? err : JSON.stringify(err);\n  if (/131047|131048|window|template/i.test(s)) {\n    return [{ json: { ok: false, error: 'ventana-24h-cerrada: el cliente debe escribirte primero desde su WhatsApp (regla de Meta). Escribele desde tu personal o esperá su mensaje.' } }];\n  }\n  return [{ json: { ok: false, error: 'envio-fallido: ' + (typeof err === 'string' ? err : (err.message || s)) } }];\n}\nreturn [{ json: { ok: true } }];"
       },
       "id": "w7",
       "name": "Formatear Resultado",
